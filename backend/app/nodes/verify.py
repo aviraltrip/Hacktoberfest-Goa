@@ -119,11 +119,8 @@ def verify_node(state: CompileState) -> dict[str, Any]:
         return {"status": "verifying", "results": results}
 
     async def _run_verifications():
-        verified_results = []
-        for r in results:
-            updated_r = await verify_single_row(r, spec)
-            verified_results.append(updated_r)
-        return verified_results
+        tasks = [verify_single_row(r, spec) for r in results]
+        return list(await asyncio.gather(*tasks))
 
     try:
         loop = asyncio.get_event_loop()
