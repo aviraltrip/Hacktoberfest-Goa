@@ -15,6 +15,12 @@ from io import BytesIO
 from PIL import Image, ImageDraw
 from dotenv import load_dotenv
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # Load environment variables
 load_dotenv()
 
