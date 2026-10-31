@@ -14,30 +14,16 @@ from app.models import CompileState, RunState
 from app.nodes.understand import understand_node
 from app.nodes.review import review_intents_node
 from app.nodes.compile_spec import compile_spec_node
+from app.nodes.trial_run import trial_run_node
+from app.nodes.verify import verify_node
+from app.nodes.save import save_node
 
 MAX_REPAIRS = 2
 
 
 # ---------------------------------------------------------------------------
-# Phase 3 / Phase 4 Bridge Placeholders
-# (trial_run, verify, repair, save will be fully populated in Phase 4 & 5)
+# Phase 5 Repair Bridge Placeholder
 # ---------------------------------------------------------------------------
-
-def trial_run_node(state: CompileState) -> dict[str, Any]:
-    """Trial run execution node across test rows (Bridge to Phase 4)."""
-    results = state.get("results") or []
-    return {
-        "results": results,
-        "status": "testing"
-    }
-
-
-def verify_node(state: CompileState) -> dict[str, Any]:
-    """Verification node evaluating deterministic + visual success criteria (Bridge to Phase 4)."""
-    return {
-        "status": "verifying"
-    }
-
 
 def repair_node(state: CompileState) -> dict[str, Any]:
     """Repair node utilizing Set-of-Marks visual prompt (Bridge to Phase 5)."""
@@ -45,13 +31,6 @@ def repair_node(state: CompileState) -> dict[str, Any]:
     return {
         "repairs_count": repairs,
         "status": "repairing"
-    }
-
-
-def save_node(state: CompileState) -> dict[str, Any]:
-    """Save finalized workflow to SQLite and export (Bridge to Phase 4/5)."""
-    return {
-        "status": "saved"
     }
 
 
@@ -77,7 +56,7 @@ def build_compile_graph(checkpointer: Optional[Any] = None):
     chk = checkpointer if checkpointer is not None else MemorySaver()
     builder = StateGraph(CompileState)
 
-    # Register nodes (all synchronous for full cross-version & Windows compatibility)
+    # Register nodes
     builder.add_node("understand", understand_node)
     builder.add_node("review_intents", review_intents_node)  # Interrupts for human confirmation
     builder.add_node("compile_spec", compile_spec_node)
