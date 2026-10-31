@@ -47,3 +47,4 @@ PROMPTS_DIR = APP_DIR / "prompts"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 SHOTS_DIR.mkdir(parents=True, exist_ok=True)
 SPECS_DIR.mkdir(parents=True, exist_ok=True)
+

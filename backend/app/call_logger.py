@@ -158,3 +158,4 @@ class GemmaCallLogger:
 
 # Global singleton instance
 call_logger = GemmaCallLogger()
+

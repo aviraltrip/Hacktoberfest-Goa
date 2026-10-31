@@ -92,3 +92,4 @@ def save_screenshot_bytes(
     with open(file_path, "wb") as f:
         f.write(image_bytes)
     return file_path
+

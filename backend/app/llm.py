@@ -276,3 +276,4 @@ class GemmaClient:
 
 # Global singleton client instance
 gemma_client = GemmaClient()
+

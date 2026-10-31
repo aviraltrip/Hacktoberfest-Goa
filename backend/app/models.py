@@ -196,3 +196,4 @@ class RunState(TypedDict, total=False):
     heal_approved: bool
     status: Literal['running', 'heal_pending', 'patched', 'completed', 'failed']
     error: Optional[str]
+
