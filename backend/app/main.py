@@ -4,8 +4,9 @@ Provides HTTP REST endpoints and Server-Sent Events (SSE) streaming for:
 1. Recording sessions (/api/record/*)
 2. Workflow compilation and review (/api/compile/*)
 3. Workflow execution and healing (/api/run/*)
-4. Gemma 4 Call Inspector telemetry (/api/gemma/calls)
-5. Static screenshots serving (/static/shots/*)
+4. Historical specs and run traces (/api/specs/*, /api/runs/*)
+5. Gemma 4 Call Inspector telemetry (/api/gemma/calls)
+6. Static screenshots serving (/static/shots/*)
 """
 
 import json
@@ -22,17 +23,20 @@ from pydantic import BaseModel
 from langgraph.types import Command
 
 from app.config import SHOTS_DIR, SPECS_DIR, DB_PATH, BACKEND_PORT
-from app.models import Step, Variable, WorkflowSpec, GemmaCallLog, CompileState
+from app.models import Step, Variable, WorkflowSpec, RowResult, StepResult, GemmaCallLog, CompileState
 from app.recorder import PlaywrightRecorder
+from app.runner import WorkflowRunner
 from app.call_logger import call_logger
 from app.graphs import build_compile_graph
 from app.exporter import export_standalone_script
+from app.nodes.save import persist_run_results_to_sqlite
 
 
 # In-memory session registries
 active_recorders: dict[str, PlaywrightRecorder] = {}
 completed_recordings: dict[str, list[Step]] = {}
 active_compilations: dict[str, dict[str, Any]] = {}
+active_runs: dict[str, dict[str, Any]] = {}
 
 
 @asynccontextmanager
@@ -87,6 +91,11 @@ class CompileApproveRequest(BaseModel):
     name: Optional[str] = None
     variables: Optional[list[Variable]] = None
     steps: Optional[list[Step]] = None
+
+class RunStartRequest(BaseModel):
+    spec_id: str
+    rows: list[dict[str, Any]]
+    headed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +410,187 @@ async def approve_compilation(id: str, req: CompileApproveRequest):
         "compile_id": id,
         "status": "resumed"
     }
+
+
+# ---------------------------------------------------------------------------
+# Execution (Run) Endpoints
+# ---------------------------------------------------------------------------
+
+async def _run_batch_worker(run_id: str, spec: WorkflowSpec, rows: list[dict[str, Any]], headed: bool, event_queue: asyncio.Queue):
+    """Executes batch workflow runs asynchronously while broadcasting row/step progress to SSE."""
+    session = active_runs[run_id]
+    runner = WorkflowRunner(run_id=run_id)
+
+    async def on_step(row_idx: int, step_idx: int, res: StepResult):
+        await event_queue.put({
+            "type": "step_progress",
+            "run_id": run_id,
+            "row_idx": row_idx,
+            "step_idx": step_idx,
+            "ok": res.ok,
+            "error": res.error,
+            "duration_ms": res.duration_ms
+        })
+
+    try:
+        await event_queue.put({"type": "run_started", "run_id": run_id, "total_rows": len(rows)})
+
+        results = await runner.execute_batch(
+            spec=spec,
+            rows=rows,
+            headed=headed,
+            on_step_progress=on_step
+        )
+
+        session["results"] = results
+        all_ok = all(r.success for r in results)
+        session["status"] = "completed" if all_ok else "failed"
+
+        # Persist run results to SQLite
+        persist_run_results_to_sqlite(
+            run_id=run_id,
+            spec_id=spec.id or "custom",
+            status=session["status"],
+            results=results
+        )
+
+        await event_queue.put({
+            "type": "run_completed",
+            "run_id": run_id,
+            "status": session["status"],
+            "total_rows": len(rows),
+            "passed_rows": sum(1 for r in results if r.success),
+            "results": [r.model_dump() for r in results]
+        })
+
+    except Exception as e:
+        session["status"] = "failed"
+        session["error"] = str(e)
+        await event_queue.put({"type": "run_error", "run_id": run_id, "error": str(e)})
+
+
+@app.post("/api/run")
+async def start_run(req: RunStartRequest):
+    """Starts batch execution of a compiled WorkflowSpec over multiple rows."""
+    spec_data = await get_spec(req.spec_id)
+    spec_obj = WorkflowSpec.model_validate(spec_data)
+
+    run_id = f"run_{uuid.uuid4().hex[:8]}"
+    event_queue = asyncio.Queue()
+
+    active_runs[run_id] = {
+        "run_id": run_id,
+        "spec_id": req.spec_id,
+        "status": "running",
+        "rows": req.rows,
+        "results": [],
+        "event_queue": event_queue
+    }
+
+    asyncio.create_task(
+        _run_batch_worker(
+            run_id=run_id,
+            spec=spec_obj,
+            rows=req.rows,
+            headed=req.headed,
+            event_queue=event_queue
+        )
+    )
+
+    return {
+        "run_id": run_id,
+        "spec_id": req.spec_id,
+        "status": "running",
+        "row_count": len(req.rows)
+    }
+
+
+@app.get("/api/run/{id}/events")
+async def stream_run_events(request: Request, id: str):
+    """Server-Sent Events (SSE) stream for batch execution progress."""
+    session = active_runs.get(id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Run session not found")
+
+    event_queue: asyncio.Queue = session["event_queue"]
+
+    async def sse_generator():
+        try:
+            yield f"event: connected\ndata: {json.dumps({'run_id': id, 'status': session['status']})}\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
+                    event_type = event.get("type", "run_progress")
+                    yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+                    if event_type in ("run_completed", "run_error"):
+                        break
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
+        finally:
+            pass
+
+    return StreamingResponse(
+        sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@app.get("/api/runs")
+async def list_runs():
+    """Returns historical execution runs from SQLite."""
+    runs_list = []
+    if DB_PATH.exists():
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute("SELECT id, spec_id, status, results_json, created_at FROM runs ORDER BY created_at DESC")
+                for row in cursor.fetchall():
+                    runs_list.append({
+                        "id": row["id"],
+                        "spec_id": row["spec_id"],
+                        "status": row["status"],
+                        "results": json.loads(row["results_json"]),
+                        "created_at": row["created_at"]
+                    })
+        except Exception as e:
+            print(f"[Main] Error reading runs: {e}")
+    return runs_list
+
+
+@app.get("/api/runs/{id}")
+async def get_run(id: str):
+    """Retrieves execution details for a specific run ID."""
+    session = active_runs.get(id)
+    if session:
+        return {
+            "id": id,
+            "spec_id": session["spec_id"],
+            "status": session["status"],
+            "results": [r.model_dump() if hasattr(r, "model_dump") else r for r in session["results"]]
+        }
+
+    if DB_PATH.exists():
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT id, spec_id, status, results_json, created_at FROM runs WHERE id = ?", (id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row["id"],
+                    "spec_id": row["spec_id"],
+                    "status": row["status"],
+                    "results": json.loads(row["results_json"]),
+                    "created_at": row["created_at"]
+                }
+
+    raise HTTPException(status_code=404, detail=f"Run record {id} not found")
 
 
 # ---------------------------------------------------------------------------
