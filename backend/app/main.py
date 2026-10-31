@@ -9,6 +9,8 @@ Provides HTTP REST endpoints and Server-Sent Events (SSE) streaming for:
 """
 
 import json
+import uuid
+import sqlite3
 import asyncio
 from typing import Optional, Any
 from contextlib import asynccontextmanager
@@ -17,16 +19,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from langgraph.types import Command
 
-from app.config import SHOTS_DIR, BACKEND_PORT
-from app.models import Step, GemmaCallLog
+from app.config import SHOTS_DIR, SPECS_DIR, DB_PATH, BACKEND_PORT
+from app.models import Step, Variable, WorkflowSpec, GemmaCallLog, CompileState
 from app.recorder import PlaywrightRecorder
 from app.call_logger import call_logger
+from app.graphs import build_compile_graph
+from app.exporter import export_standalone_script
 
 
 # In-memory session registries
 active_recorders: dict[str, PlaywrightRecorder] = {}
 completed_recordings: dict[str, list[Step]] = {}
+active_compilations: dict[str, dict[str, Any]] = {}
 
 
 @asynccontextmanager
@@ -74,6 +80,14 @@ class RecordStartRequest(BaseModel):
 class RecordStopRequest(BaseModel):
     recording_id: str
 
+class CompileStartRequest(BaseModel):
+    recording_id: str
+
+class CompileApproveRequest(BaseModel):
+    name: Optional[str] = None
+    variables: Optional[list[Variable]] = None
+    steps: Optional[list[Step]] = None
+
 
 # ---------------------------------------------------------------------------
 # Health & Telemetry Endpoints
@@ -102,7 +116,6 @@ async def start_recording(req: RecordStartRequest):
     rec_id = recorder.recording_id
     active_recorders[rec_id] = recorder
 
-    # Start browser session asynchronously
     try:
         await recorder.start(start_url=req.start_url, headed=req.headed)
     except Exception as e:
@@ -147,23 +160,17 @@ async def stream_record_events(request: Request, id: str = Query(..., descriptio
 
     async def sse_generator():
         try:
-            # Yield initial connection confirmation
             yield f"event: connected\ndata: {json.dumps({'recording_id': id})}\n\n"
-
             while True:
-                # Check for client disconnect
                 if await request.is_disconnected():
                     break
-
                 try:
                     event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                     yield f"event: {event.get('type', 'step_recorded')}\ndata: {json.dumps(event)}\n\n"
                     if event.get("type") == "recording_stopped":
                         break
                 except asyncio.TimeoutError:
-                    # Keep-alive heartbeat comment
                     yield ": ping\n\n"
-
         finally:
             recorder.unsubscribe(event_queue)
 
@@ -176,3 +183,251 @@ async def stream_record_events(request: Request, id: str = Query(..., descriptio
             "X-Accel-Buffering": "no"
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Compilation Endpoints
+# ---------------------------------------------------------------------------
+
+async def _run_compile_task(compile_id: str, graph: Any, config: dict, initial_state: dict, event_queue: asyncio.Queue):
+    """Executes the compile graph asynchronously while broadcasting events to SSE queue."""
+    session = active_compilations[compile_id]
+    try:
+        await event_queue.put({"type": "compile_started", "compile_id": compile_id})
+
+        # Run graph until interrupt or completion
+        async for chunk in graph.astream(initial_state, config=config):
+            # chunk is {node_name: state_update}
+            for node_name, update in chunk.items():
+                await event_queue.put({
+                    "type": "node_update",
+                    "node": node_name,
+                    "status": update.get("status", "running"),
+                    "spec": update.get("spec").model_dump() if update.get("spec") else None
+                })
+
+        # Inspect final state or interrupt state
+        state_snapshot = graph.get_state(config)
+        session["state"] = state_snapshot.values
+
+        if state_snapshot.next:
+            # Graph paused at an interrupt (e.g. review_intents)
+            next_node = state_snapshot.next[0]
+            session["status"] = "review_pending"
+            interrupt_val = state_snapshot.tasks[0].interrupts[0].value if state_snapshot.tasks and state_snapshot.tasks[0].interrupts else {}
+            await event_queue.put({
+                "type": "interrupt",
+                "node": next_node,
+                "payload": interrupt_val
+            })
+        else:
+            session["status"] = "completed"
+            await event_queue.put({
+                "type": "compile_completed",
+                "spec": session["state"].get("spec").model_dump() if session["state"].get("spec") else None
+            })
+
+    except Exception as e:
+        session["status"] = "failed"
+        session["error"] = str(e)
+        await event_queue.put({"type": "compile_error", "error": str(e)})
+
+
+@app.post("/api/compile")
+async def start_compilation(req: CompileStartRequest):
+    """Starts the LangGraph Compile Graph for a completed recording session."""
+    raw_steps = completed_recordings.get(req.recording_id)
+    if not raw_steps:
+        # Check if active recorder exists
+        rec = active_recorders.get(req.recording_id)
+        if rec and not rec.is_active:
+            raw_steps = await rec.stop()
+            completed_recordings[req.recording_id] = raw_steps
+        else:
+            raise HTTPException(status_code=400, detail="Recording ID has no completed steps to compile")
+
+    compile_id = f"cmp_{uuid.uuid4().hex[:8]}"
+    thread_id = f"thread_{compile_id}"
+    event_queue = asyncio.Queue()
+
+    # Build fresh graph instance with checkpointing
+    graph = build_compile_graph()
+    config = {"configurable": {"thread_id": thread_id}}
+
+    initial_state = {
+        "recording_id": req.recording_id,
+        "raw_steps": raw_steps,
+        "intents_approved": False,
+        "repairs_count": 0,
+        "status": "understanding"
+    }
+
+    active_compilations[compile_id] = {
+        "compile_id": compile_id,
+        "graph": graph,
+        "config": config,
+        "event_queue": event_queue,
+        "status": "understanding",
+        "state": initial_state
+    }
+
+    # Launch background compilation task
+    asyncio.create_task(
+        _run_compile_task(
+            compile_id=compile_id,
+            graph=graph,
+            config=config,
+            initial_state=initial_state,
+            event_queue=event_queue
+        )
+    )
+
+    return {
+        "compile_id": compile_id,
+        "status": "understanding",
+        "recording_id": req.recording_id
+    }
+
+
+@app.get("/api/compile/{id}/events")
+async def stream_compile_events(request: Request, id: str):
+    """Server-Sent Events (SSE) stream for compilation progress and interrupt events."""
+    session = active_compilations.get(id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Compilation session not found")
+
+    event_queue: asyncio.Queue = session["event_queue"]
+
+    async def sse_generator():
+        try:
+            yield f"event: connected\ndata: {json.dumps({'compile_id': id, 'status': session['status']})}\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
+                    event_type = event.get("type", "compile_progress")
+                    yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+                    if event_type in ("compile_completed", "compile_error"):
+                        break
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
+        finally:
+            pass
+
+    return StreamingResponse(
+        sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@app.post("/api/compile/{id}/approve")
+async def approve_compilation(id: str, req: CompileApproveRequest):
+    """Resumes compilation graph execution past the review_intents interrupt."""
+    session = active_compilations.get(id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Compilation session not found")
+
+    graph = session["graph"]
+    config = session["config"]
+    event_queue: asyncio.Queue = session["event_queue"]
+
+    resume_payload = {}
+    if req.name:
+        resume_payload["name"] = req.name
+    if req.variables is not None:
+        resume_payload["variables"] = [v.model_dump() for v in req.variables]
+    if req.steps is not None:
+        resume_payload["steps"] = [s.model_dump() for s in req.steps]
+
+    # Resume graph execution with Command
+    async def _resume_task():
+        try:
+            await event_queue.put({"type": "review_approved", "compile_id": id})
+            async for chunk in graph.astream(Command(resume=resume_payload), config=config):
+                for node_name, update in chunk.items():
+                    await event_queue.put({
+                        "type": "node_update",
+                        "node": node_name,
+                        "status": update.get("status", "running"),
+                        "spec": update.get("spec").model_dump() if update.get("spec") else None
+                    })
+
+            state_snapshot = graph.get_state(config)
+            session["state"] = state_snapshot.values
+            session["status"] = "completed"
+            await event_queue.put({
+                "type": "compile_completed",
+                "spec": session["state"].get("spec").model_dump() if session["state"].get("spec") else None
+            })
+        except Exception as e:
+            session["status"] = "failed"
+            await event_queue.put({"type": "compile_error", "error": str(e)})
+
+    asyncio.create_task(_resume_task())
+
+    return {
+        "compile_id": id,
+        "status": "resumed"
+    }
+
+
+# ---------------------------------------------------------------------------
+# Workflow Spec Inspection & Export Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/specs")
+async def list_specs():
+    """Returns all compiled WorkflowSpec records from SQLite."""
+    specs_list = []
+    if DB_PATH.exists():
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute("SELECT id, name, start_url, spec_json, created_at FROM specs ORDER BY created_at DESC")
+                for row in cursor.fetchall():
+                    specs_list.append(json.loads(row["spec_json"]))
+        except Exception as e:
+            print(f"[Main] Error reading specs from DB: {e}")
+    return specs_list
+
+
+@app.get("/api/specs/{id}")
+async def get_spec(id: str):
+    """Retrieves a single WorkflowSpec by ID."""
+    spec_file = SPECS_DIR / f"{id}.json"
+    if spec_file.exists():
+        try:
+            with open(spec_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    if DB_PATH.exists():
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT spec_json FROM specs WHERE id = ?", (id,))
+            row = cursor.fetchone()
+            if row:
+                return json.loads(row["spec_json"])
+
+    raise HTTPException(status_code=404, detail=f"Specification {id} not found")
+
+
+@app.get("/api/specs/{id}/export")
+async def export_spec_script(id: str):
+    """Exports WorkflowSpec alongside an executable standalone Playwright Python script."""
+    spec_data = await get_spec(id)
+    spec_obj = WorkflowSpec.model_validate(spec_data)
+    script_str = export_standalone_script(spec_obj)
+
+    return {
+        "spec_id": id,
+        "spec": spec_data,
+        "playwright_script": script_str
+    }
