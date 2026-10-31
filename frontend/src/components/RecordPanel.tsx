@@ -59,8 +59,9 @@ export default function RecordPanel({ onRecordingComplete, onSelectStepToView }:
       es.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === 'step') {
-            setSteps((prev) => [...prev, data.step]);
+          if (data.type === 'step_recorded' || data.type === 'step') {
+            const newStep = data.step || data;
+            setSteps((prev) => [...prev, newStep]);
           }
         } catch (e) {
           console.error('Error parsing SSE event:', e);
@@ -88,7 +89,7 @@ export default function RecordPanel({ onRecordingComplete, onSelectStepToView }:
       }
       const res = await stopRecording(recordingId);
       setIsRecording(false);
-      onRecordingComplete(recordingId, res.raw_steps || steps);
+      onRecordingComplete(recordingId, res.steps || res.raw_steps || steps);
     } catch (err: any) {
       setError(err.message || 'Failed to stop recording');
     } finally {
@@ -123,11 +124,20 @@ export default function RecordPanel({ onRecordingComplete, onSelectStepToView }:
               <button
                 type="button"
                 disabled={isRecording}
+                onClick={() => setStartUrl('http://localhost:8000/demo/')}
+                className="px-3 py-2 text-xs font-medium rounded-lg bg-indigo-900/60 text-indigo-200 hover:text-white hover:bg-indigo-800 border border-indigo-700/50 transition"
+                title="Embedded Demo in FastAPI"
+              >
+                Local /demo
+              </button>
+              <button
+                type="button"
+                disabled={isRecording}
                 onClick={() => setStartUrl('http://localhost:8080/')}
                 className="px-3 py-2 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
-                title="ScholarshipPortal Baseline"
+                title="ScholarshipPortal Baseline (:8080)"
               >
-                V1 Baseline
+                :8080 V1
               </button>
               <button
                 type="button"

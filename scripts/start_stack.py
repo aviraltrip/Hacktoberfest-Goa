@@ -34,9 +34,11 @@ def launch_all():
         # 1. Demo Application Server (port 8080)
         demo_dir = ROOT_DIR / "demo_app"
         print("[1/3] Starting Demo App on http://localhost:8080 ...")
+        env_utf8 = {**os.environ, "PYTHONIOENCODING": "utf-8"}
         p_demo = subprocess.Popen(
             [sys.executable, "-m", "http.server", "8080", "--directory", str(demo_dir)],
-            cwd=str(ROOT_DIR)
+            cwd=str(ROOT_DIR),
+            env=env_utf8
         )
         processes.append(("Demo App (8080)", p_demo))
 
@@ -44,8 +46,9 @@ def launch_all():
         print("[2/3] Starting FastAPI Backend on http://localhost:8000 ...")
         backend_dir = ROOT_DIR / "backend"
         p_backend = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "app.main:app", "--port", "8000", "--reload"],
-            cwd=str(backend_dir)
+            [sys.executable, "-m", "uvicorn", "app.main:app", "--port", "8000", "--loop", "asyncio"],
+            cwd=str(backend_dir),
+            env=env_utf8
         )
         processes.append(("FastAPI Backend (8000)", p_backend))
 

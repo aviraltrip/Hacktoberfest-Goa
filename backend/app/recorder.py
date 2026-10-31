@@ -115,69 +115,114 @@ class PlaywrightRecorder:
 
             self.raw_events.append(recorded_event)
 
-            # Broadcast event for live SSE streaming
-            await self._broadcast({
-                "type": "step_recorded",
+            step_summary = (
+                event_data.get("target", {}).get("accessible_name") or
+                event_data.get("target", {}).get("label") or
+                event_data.get("target", {}).get("tag") or ""
+            )
+            step_dict = {
                 "idx": self._step_counter,
                 "action": action,
                 "value": event_data.get("value"),
-                "tag": event_data.get("target", {}).get("tag"),
+                "key": event_data.get("key"),
                 "shot_before": shot_before,
                 "shot_after": shot_after,
-                "target_summary": (
-                    event_data.get("target", {}).get("accessible_name") or
-                    event_data.get("target", {}).get("label") or
-                    event_data.get("target", {}).get("tag") or ""
-                )
+                "intent": f"{action.capitalize()} {step_summary}".strip(),
+                "locators": [
+                    {
+                        "kind": "role",
+                        "role": event_data.get("target", {}).get("role", "generic"),
+                        "name": event_data.get("target", {}).get("accessible_name", "")
+                    }
+                ] if event_data.get("target") else [],
+                "target_summary": step_summary
+            }
+
+            # Broadcast event for live SSE streaming
+            await self._broadcast({
+                "type": "step_recorded",
+                "step": step_dict,
+                **step_dict
             })
 
     async def start(self, start_url: str, headed: bool = True) -> str:
         """Launches browser, attaches listeners, and navigates to start_url."""
-        self._playwright = await async_playwright().start()
+        try:
+            self._playwright = await async_playwright().start()
 
-        # Headed browser by default for human recording
-        self._browser = await self._playwright.chromium.launch(
-            headless=not headed,
-            args=["--start-maximized", "--no-default-browser-check"]
-        )
+            # Headed browser by default for human recording
+            launch_args = ["--no-default-browser-check"]
+            if headed:
+                launch_args.append("--start-maximized")
 
-        self._context = await self._browser.new_context(
-            viewport={"width": 1280, "height": 800},
-            ignore_https_errors=True
-        )
+            self._browser = await self._playwright.chromium.launch(
+                headless=not headed,
+                args=launch_args
+            )
 
-        # Expose binding before adding scripts
-        await self._context.expose_binding("__record", self._handle_dom_event)
-        await self._context.add_init_script(INJECTED_RECORDER_JS)
+            self._context = await self._browser.new_context(
+                viewport={"width": 1280, "height": 800},
+                ignore_https_errors=True
+            )
 
-        self._page = await self._context.new_page()
-        self.is_active = True
+            # Expose binding before adding scripts
+            await self._context.expose_binding("__record", self._handle_dom_event)
+            await self._context.add_init_script(INJECTED_RECORDER_JS)
 
-        # Navigate to start_url
-        await self._page.goto(start_url)
-        await self._settle_page()
+            self._page = await self._context.new_page()
+            self.is_active = True
 
-        # Record initial navigation step
-        self._step_counter += 1
-        initial_shot = await self._capture_screenshot("after")
-        nav_event = {
-            "idx": self._step_counter,
-            "action": "goto",
-            "url": start_url,
-            "shot_after": initial_shot
-        }
-        self.raw_events.append(nav_event)
+            # Navigate to start_url with timeout and domcontentloaded
+            try:
+                await self._page.goto(start_url, wait_until="domcontentloaded", timeout=15000)
+                await self._settle_page()
+            except Exception as nav_err:
+                err_str = str(nav_err)
+                if "ERR_CONNECTION_REFUSED" in err_str:
+                    raise ConnectionError(
+                        f"Cannot connect to '{start_url}' (Connection Refused). "
+                        f"Please ensure your target web application is running, or visit the embedded demo at 'http://localhost:8000/demo/'."
+                    )
+                elif "Timeout" in err_str:
+                    raise TimeoutError(
+                        f"Navigation to '{start_url}' timed out after 15s. Please check that the URL is active and reachable."
+                    )
+                raise RuntimeError(f"Navigation failed: {err_str}")
 
-        await self._broadcast({
-            "type": "step_recorded",
-            "idx": self._step_counter,
-            "action": "goto",
-            "value": start_url,
-            "shot_after": initial_shot,
-            "target_summary": start_url
-        })
+            # Record initial navigation step
+            self._step_counter += 1
+            initial_shot = await self._capture_screenshot("after")
+            nav_event = {
+                "idx": self._step_counter,
+                "action": "goto",
+                "url": start_url,
+                "shot_after": initial_shot
+            }
+            self.raw_events.append(nav_event)
 
-        return self.recording_id
+            step_dict = {
+                "idx": self._step_counter,
+                "action": "goto",
+                "value": start_url,
+                "url": start_url,
+                "shot_before": "",
+                "shot_after": initial_shot,
+                "intent": f"Navigate to {start_url}",
+                "locators": [],
+                "target_summary": start_url
+            }
+
+            await self._broadcast({
+                "type": "step_recorded",
+                "step": step_dict,
+                **step_dict
+            })
+
+            return self.recording_id
+        except Exception:
+            # Cleanly tear down on any startup error so no zombie processes remain
+            await self.stop()
+            raise
 
     async def stop(self) -> list[Step]:
         """Stops the session, closes browser, and returns coalesced Step objects."""

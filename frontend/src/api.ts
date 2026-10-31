@@ -12,14 +12,27 @@ export function getImageUrl(path?: string | null): string {
   return `/static/shots/${filename}`;
 }
 
+async function handleResponse<T>(res: Response, defaultError = 'Request failed'): Promise<T> {
+  if (!res.ok) {
+    let msg = defaultError;
+    try {
+      const errJson = await res.json();
+      msg = errJson.detail || JSON.stringify(errJson);
+    } catch {
+      msg = (await res.text()) || defaultError;
+    }
+    throw new Error(msg);
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function startRecording(startUrl: string, headed: boolean = true) {
   const res = await fetch(`${API_BASE}/record/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ start_url: startUrl, headed }),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ recording_id: string; status: string }>;
+  return handleResponse<{ recording_id: string; status: string }>(res, 'Failed to start recording');
 }
 
 export async function stopRecording(recordingId: string) {
@@ -28,8 +41,10 @@ export async function stopRecording(recordingId: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ recording_id: recordingId }),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ recording_id: string; step_count: number; raw_steps: Step[] }>;
+  return handleResponse<{ recording_id: string; step_count: number; steps?: Step[]; raw_steps?: Step[] }>(
+    res,
+    'Failed to stop recording'
+  );
 }
 
 export async function startCompilation(recordingId: string) {
@@ -38,8 +53,7 @@ export async function startCompilation(recordingId: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ recording_id: recordingId }),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ compile_id: string; status: string }>;
+  return handleResponse<{ compile_id: string; status: string }>(res, 'Failed to start compilation');
 }
 
 export async function approveCompilation(compileId: string, updates: { name?: string; variables?: Variable[]; steps?: Step[] }) {
@@ -48,8 +62,7 @@ export async function approveCompilation(compileId: string, updates: { name?: st
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ compile_id: string; status: string }>;
+  return handleResponse<{ compile_id: string; status: string }>(res, 'Failed to approve compilation');
 }
 
 export async function startWorkflowRun(specId: string, rows: Record<string, any>[], headed: boolean = false) {
@@ -58,8 +71,7 @@ export async function startWorkflowRun(specId: string, rows: Record<string, any>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ spec_id: specId, rows, headed }),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ run_id: string; status: string }>;
+  return handleResponse<{ run_id: string; status: string }>(res, 'Failed to start workflow run');
 }
 
 export async function approveHealAction(runId: string, approved: boolean, overrideChoice?: number) {
@@ -68,8 +80,7 @@ export async function approveHealAction(runId: string, approved: boolean, overri
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ approved, override_choice: overrideChoice }),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ run_id: string; status: string }>;
+  return handleResponse<{ run_id: string; status: string }>(res, 'Failed to submit heal approval');
 }
 
 export async function listSpecs(): Promise<WorkflowSpec[]> {
@@ -80,14 +91,12 @@ export async function listSpecs(): Promise<WorkflowSpec[]> {
 
 export async function getSpec(id: string): Promise<WorkflowSpec> {
   const res = await fetch(`${API_BASE}/specs/${id}`);
-  if (!res.ok) throw new Error('Spec not found');
-  return res.json();
+  return handleResponse<WorkflowSpec>(res, 'Spec not found');
 }
 
 export async function exportStandaloneScript(id: string): Promise<{ spec: WorkflowSpec; playwright_script: string }> {
   const res = await fetch(`${API_BASE}/specs/${id}/export`);
-  if (!res.ok) throw new Error('Export failed');
-  return res.json();
+  return handleResponse<{ spec: WorkflowSpec; playwright_script: string }>(res, 'Export failed');
 }
 
 export async function listRuns(): Promise<any[]> {
@@ -110,6 +119,5 @@ export async function getHealMemory(): Promise<any[]> {
 
 export async function getAblationBenchmark(): Promise<AblationResponse> {
   const res = await fetch(`${API_BASE}/ablation`);
-  if (!res.ok) throw new Error('Ablation benchmark fetch failed');
-  return res.json();
+  return handleResponse<AblationResponse>(res, 'Ablation benchmark fetch failed');
 }

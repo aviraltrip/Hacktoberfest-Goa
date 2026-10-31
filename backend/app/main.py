@@ -9,12 +9,20 @@ Provides HTTP REST endpoints and Server-Sent Events (SSE) streaming for:
 6. Static screenshots serving (/static/shots/*)
 """
 
+import sys
 import json
 import uuid
 import sqlite3
 import asyncio
 from typing import Optional, Any
 from contextlib import asynccontextmanager
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,7 +30,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from langgraph.types import Command
 
-from app.config import SHOTS_DIR, SPECS_DIR, DB_PATH, BACKEND_PORT
+from app.config import ROOT_DIR, SHOTS_DIR, SPECS_DIR, DB_PATH, BACKEND_PORT
 from app.models import Step, Variable, WorkflowSpec, RowResult, StepResult, GemmaCallLog, CompileState, RunState
 from app.recorder import PlaywrightRecorder
 from app.runner import WorkflowRunner
@@ -42,7 +50,7 @@ active_runs: dict[str, dict[str, Any]] = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
-    print(f"🚀 DemoToSkill Backend running on port {BACKEND_PORT}")
+    print(f"[DemoToSkill] Backend running on port {BACKEND_PORT}")
     yield
     # Cleanup any active recorders on shutdown
     for rec in list(active_recorders.values()):
@@ -71,6 +79,11 @@ app.add_middleware(
 
 # Serve generated screenshot images statically
 app.mount("/static/shots", StaticFiles(directory=str(SHOTS_DIR)), name="shots")
+
+# Serve embedded demo target application directly on /demo
+DEMO_APP_DIR = ROOT_DIR / "demo_app"
+if DEMO_APP_DIR.exists():
+    app.mount("/demo", StaticFiles(directory=str(DEMO_APP_DIR), html=True), name="demo")
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +146,11 @@ async def start_recording(req: RecordStartRequest):
         await recorder.start(start_url=req.start_url, headed=req.headed)
     except Exception as e:
         active_recorders.pop(rec_id, None)
-        raise HTTPException(status_code=500, detail=f"Failed to start recording: {str(e)}")
+        try:
+            await recorder.stop()
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {
         "recording_id": rec_id,
@@ -173,13 +190,13 @@ async def stream_record_events(request: Request, id: str = Query(..., descriptio
 
     async def sse_generator():
         try:
-            yield f"event: connected\ndata: {json.dumps({'recording_id': id})}\n\n"
+            yield f"data: {json.dumps({'type': 'connected', 'recording_id': id})}\n\n"
             while True:
                 if await request.is_disconnected():
                     break
                 try:
                     event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
-                    yield f"event: {event.get('type', 'step_recorded')}\ndata: {json.dumps(event)}\n\n"
+                    yield f"data: {json.dumps(event)}\n\n"
                     if event.get("type") == "recording_stopped":
                         break
                 except asyncio.TimeoutError:
@@ -723,3 +740,10 @@ async def get_ablation_results():
             "summary": {}
         }
 
+
+
+if __name__ == "__main__":
+    import uvicorn
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    uvicorn.run("app.main:app", host="0.0.0.0", port=BACKEND_PORT, loop="asyncio")
