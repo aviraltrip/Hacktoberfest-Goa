@@ -153,6 +153,34 @@ class HealMemory:
 
         return hints
 
+    def list_heals(self, limit: int = 50) -> list[dict]:
+        """Returns all recorded heals sorted by most recent."""
+        heals_list = []
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(
+                    """
+                    SELECT id, site, intent, old_locator, new_locator, timestamp
+                    FROM heals
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (limit,)
+                )
+                for row in cursor.fetchall():
+                    heals_list.append({
+                        "id": row["id"],
+                        "site": row["site"],
+                        "intent": row["intent"],
+                        "old_locator": row["old_locator"],
+                        "new_locator": row["new_locator"],
+                        "timestamp": row["timestamp"]
+                    })
+        except Exception as e:
+            print(f"[HealMemory] Error listing heals: {e}")
+        return heals_list
+
     def clear(self):
         """Clears all heal memory records."""
         with sqlite3.connect(self.db_path) as conn:

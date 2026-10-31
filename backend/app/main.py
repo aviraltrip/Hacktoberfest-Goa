@@ -681,3 +681,45 @@ async def export_spec_script(id: str):
         "spec": spec_data,
         "playwright_script": script_str
     }
+
+
+# ---------------------------------------------------------------------------
+# Self-Healing Telemetry & Ablation Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/heal/memory")
+async def get_heal_memory(limit: int = 50):
+    """Returns past repairs indexed in SQLite FTS5 heal memory."""
+    from app.memory import heal_memory
+    return heal_memory.list_heals(limit=limit)
+
+
+@app.get("/api/ablation")
+async def get_ablation_results():
+    """Returns empirical benchmark results comparing rule/BM25 vs Gemma 4 Set-of-Marks."""
+    try:
+        import sys
+        from pathlib import Path
+        ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+        if str(ROOT_DIR) not in sys.path:
+            sys.path.insert(0, str(ROOT_DIR))
+        from scripts.ablation import MUTATIONS
+        total_bm25 = sum(m["bm25_score"] for m in MUTATIONS)
+        total_gemma = sum(m["gemma_score"] for m in MUTATIONS)
+        avg_bm25 = round((total_bm25 / len(MUTATIONS)) * 100, 1)
+        avg_gemma = round((total_gemma / len(MUTATIONS)) * 100, 1)
+        return {
+            "benchmark_results": MUTATIONS,
+            "summary": {
+                "bm25_average": avg_bm25,
+                "gemma_average": avg_gemma,
+                "delta_improvement": round(avg_gemma - avg_bm25, 1)
+            }
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "benchmark_results": [],
+            "summary": {}
+        }
+
