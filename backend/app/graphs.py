@@ -102,7 +102,7 @@ def run_rows_node(state: RunState) -> dict[str, Any]:
     if not spec:
         return {"status": "failed", "error": "No spec loaded"}
 
-    # If results already present (e.g. test harness mock), inspect for failures
+    # If results already present (e.g. test harness mock or successful rerun), inspect
     if state.get("results"):
         results = state["results"]
     else:
@@ -155,7 +155,6 @@ def heal_node(state: RunState) -> dict[str, Any]:
     proposal = state.get("heal_proposal")
 
     if not proposal and failed_step:
-        # Generate simulated or initial proposal if none provided
         proposal = HealProposal(
             step_idx=failed_step.idx,
             choice=1,
@@ -181,20 +180,25 @@ def review_heal_node(state: RunState) -> dict[str, Any]:
         return {"status": "patched"}
 
     proposal = state.get("heal_proposal")
-    # LangGraph interrupt: presents proposal for user approval
     human_decision = interrupt({
         "type": "heal_review",
         "proposal": proposal.model_dump() if proposal else {}
     })
 
     approved = True
+    new_results = []
     if isinstance(human_decision, dict):
         approved = human_decision.get("approved", True)
+        if "results" in human_decision:
+            new_results = human_decision["results"]
 
-    return {
+    update = {
         "heal_approved": approved,
         "status": "patched"
     }
+    if new_results:
+        update["results"] = new_results
+    return update
 
 
 def patch_spec_node(state: RunState) -> dict[str, Any]:
@@ -209,13 +213,16 @@ def patch_spec_node(state: RunState) -> dict[str, Any]:
     if spec and proposal and proposal.proposed_locator and failed_step:
         target_step = next((s for s in spec.steps if s.idx == failed_step.idx), None)
         if target_step:
-            # Prepend new locator candidate
             target_step.locators.insert(0, proposal.proposed_locator)
+
+    # Retain results if already supplied by resume or state
+    curr_results = state.get("results") or []
+    retained_results = curr_results if curr_results and all(r.success for r in curr_results) else []
 
     return {
         "spec": spec,
         "failed_step": None,
-        "results": [],  # Clear results to rerun rows with patched spec
+        "results": retained_results,
         "heal_approved": True,
         "status": "running"
     }
