@@ -250,6 +250,21 @@ class TestPhase5API(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["status"], "heal_approved")
 
+    def test_get_heal_memory_endpoint(self):
+        resp = self.client.get("/api/heal/memory")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsInstance(resp.json(), list)
+
+    def test_get_ablation_endpoint(self):
+        resp = self.client.get("/api/ablation")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("benchmark_results", data)
+        self.assertIn("summary", data)
+        self.assertIn("gemma_average", data["summary"])
+        self.assertEqual(data["summary"]["gemma_average"], 100.0)
+
+
 
 if __name__ == "__main__":
     unittest.main()
