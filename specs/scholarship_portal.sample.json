@@ -1,0 +1,184 @@
+{
+  "id": "spec_scholarship_portal_sample",
+  "name": "Goa University Scholarship Application Skill",
+  "start_url": "http://localhost:8080/",
+  "variables": [
+    {
+      "name": "fullName",
+      "type": "text",
+      "example": "Maya Deshmukh",
+      "options": []
+    },
+    {
+      "name": "department",
+      "type": "select",
+      "example": "Computer Science",
+      "options": [
+        "Computer Science",
+        "Information Technology",
+        "Electronics",
+        "Mechanical",
+        "Civil"
+      ]
+    },
+    {
+      "name": "gradYear",
+      "type": "select",
+      "example": "2026",
+      "options": [
+        "2026",
+        "2027",
+        "2028",
+        "2029"
+      ]
+    },
+    {
+      "name": "sop",
+      "type": "text",
+      "example": "Specializing in distributed systems and autonomous agentic workflows.",
+      "options": []
+    }
+  ],
+  "steps": [
+    {
+      "idx": 1,
+      "action": "goto",
+      "locators": [],
+      "value": "http://localhost:8080/",
+      "intent": "Navigate to the Goa University Scholarship Portal homepage",
+      "role": "constant",
+      "shot_before": "",
+      "shot_after": "",
+      "dom_context": "<!DOCTYPE html><html lang=\"en\"><head><title>Goa University - Scholarship Portal 2026</title>"
+    },
+    {
+      "idx": 2,
+      "action": "fill",
+      "locators": [
+        {
+          "kind": "label",
+          "value": "Full name",
+          "name": null
+        },
+        {
+          "kind": "placeholder",
+          "value": "e.g. Maya Deshmukh",
+          "name": null
+        },
+        {
+          "kind": "css",
+          "value": "#fullName",
+          "name": null
+        }
+      ],
+      "value": "{{fullName}}",
+      "intent": "Enter the applicant's full legal name",
+      "role": "variable",
+      "variable_name": "fullName",
+      "shot_before": "",
+      "shot_after": "",
+      "dom_context": "<input type=\"text\" id=\"fullName\" name=\"fullName\" placeholder=\"e.g. Maya Deshmukh\" required>"
+    },
+    {
+      "idx": 3,
+      "action": "select",
+      "locators": [
+        {
+          "kind": "label",
+          "value": "Department",
+          "name": null
+        },
+        {
+          "kind": "css",
+          "value": "#department",
+          "name": null
+        }
+      ],
+      "value": "{{department}}",
+      "intent": "Select academic department from available university majors",
+      "role": "variable",
+      "variable_name": "department",
+      "shot_before": "",
+      "shot_after": "",
+      "dom_context": "<select id=\"department\" name=\"department\" required><option value=\"Computer Science\">Computer Science</option>"
+    },
+    {
+      "idx": 4,
+      "action": "select",
+      "locators": [
+        {
+          "kind": "label",
+          "value": "Expected Graduation Year",
+          "name": null
+        },
+        {
+          "kind": "css",
+          "value": "#gradYear",
+          "name": null
+        }
+      ],
+      "value": "{{gradYear}}",
+      "intent": "Select expected university graduation cohort year",
+      "role": "variable",
+      "variable_name": "gradYear",
+      "shot_before": "",
+      "shot_after": "",
+      "dom_context": "<select id=\"gradYear\" name=\"gradYear\" required><option value=\"2026\">2026</option>"
+    },
+    {
+      "idx": 5,
+      "action": "fill",
+      "locators": [
+        {
+          "kind": "label",
+          "value": "Statement of Purpose",
+          "name": null
+        },
+        {
+          "kind": "css",
+          "value": "#sop",
+          "name": null
+        }
+      ],
+      "value": "{{sop}}",
+      "intent": "Provide statement of purpose describing research interests",
+      "role": "variable",
+      "variable_name": "sop",
+      "shot_before": "",
+      "shot_after": "",
+      "dom_context": "<textarea id=\"sop\" name=\"sop\" placeholder=\"Briefly explain your academic focus...\"></textarea>"
+    },
+    {
+      "idx": 6,
+      "action": "click",
+      "locators": [
+        {
+          "kind": "role",
+          "value": "button",
+          "name": "Submit application"
+        },
+        {
+          "kind": "text",
+          "value": "Submit Application",
+          "name": null
+        },
+        {
+          "kind": "css",
+          "value": "button#submitBtn",
+          "name": null
+        }
+      ],
+      "value": null,
+      "intent": "Submit completed scholarship application form",
+      "role": "constant",
+      "shot_before": "",
+      "shot_after": "",
+      "dom_context": "<button type=\"submit\" id=\"submitBtn\" class=\"btn-primary\" aria-label=\"Submit application\">"
+    }
+  ],
+  "success": {
+    "text_visible": "Application received",
+    "url_contains": null,
+    "visual": "A green success alert banner confirming application receipt with reference ID is clearly visible on the screen."
+  }
+}
