@@ -46,7 +46,7 @@ def launch_all():
         print("[2/3] Starting FastAPI Backend on http://localhost:8000 ...")
         backend_dir = ROOT_DIR / "backend"
         p_backend = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "app.main:app", "--port", "8000", "--loop", "asyncio"],
+            [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio"],
             cwd=str(backend_dir),
             env=env_utf8
         )
