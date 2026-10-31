@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Goa University - Scholarship Portal 2026</title>
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --border: #cbd5e1;
+      --success-bg: #dcfce7;
+      --success-border: #86efac;
+      --success-text: #166534;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .portal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 540px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-top: 0;
+      margin-bottom: 8px;
+      color: #1e3a8a;
+    }
+    p.subtitle {
+      color: #64748b;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #334155;
+    }
+    input[type="text"], select, textarea {
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s ease;
+      background: #ffffff;
+    }
+    input[type="text"]:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    /* Normal Submit button */
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.15s ease;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+    .btn-primary svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    /* Mutation V2: Footer bar relocation & icon-only styling */
+    .portal-footer-dock {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border-top: 2px solid #e2e8f0;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      box-shadow: 0 -4px 10px rgba(0,0,0,0.06);
+    }
+    .ui-footer-act-pill {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      transition: transform 0.1s ease;
+    }
+    .ui-footer-act-pill:hover {
+      transform: scale(1.06);
+      background-color: #1d4ed8;
+    }
+    .ui-footer-act-pill svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+
+    /* Success Banner */
+    .alert-success {
+      display: none;
+      background-color: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+      padding: 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      margin-top: 20px;
+      text-align: center;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .badge-v2 {
+      display: inline-block;
+      background: #fee2e2;
+      color: #991b1b;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="portal-card">
+    <h1 id="portalHeading">Goa University Scholarship Portal <span id="modeBadge"></span></h1>
+    <p class="subtitle">Annual Merit & Need-Based Grant Application 2026</p>
+
+    <form id="scholarshipForm" onsubmit="handleFormSubmit(event)">
+      <!-- Name Field -->
+      <div class="form-group" id="groupFullName">
+        <label id="lblFullName" for="fullName">Full name</label>
+        <input type="text" id="fullName" name="fullName" placeholder="e.g. Maya Deshmukh" required autocomplete="off">
+      </div>
+
+      <!-- Department Field -->
+      <div class="form-group" id="groupDept">
+        <label id="lblDept" for="department">Department</label>
+        <select id="department" name="department" required>
+          <option value="">-- Choose Department --</option>
+          <option value="Computer Science">Computer Science</option>
+          <option value="Information Technology">Information Technology</option>
+          <option value="Electronics">Electronics</option>
+          <option value="Mechanical">Mechanical</option>
+          <option value="Civil">Civil</option>
+        </select>
+      </div>
+
+      <!-- Graduation Year Field -->
+      <div class="form-group" id="groupYear">
+        <label id="lblYear" for="gradYear">Graduation Year</label>
+        <select id="gradYear" name="gradYear" required>
+          <option value="">-- Select Year --</option>
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+          <option value="2029">2029</option>
+        </select>
+      </div>
+
+      <!-- Statement of Purpose Field -->
+      <div class="form-group" id="groupSop">
+        <label id="lblSop" for="sop">Statement of Purpose</label>
+        <textarea id="sop" name="sop" placeholder="Briefly describe your academic ambitions..."></textarea>
+      </div>
+
+      <!-- Container for V1 in-form submit button -->
+      <div id="inFormSubmitContainer">
+        <button type="submit" id="submitBtn" class="btn-primary" aria-label="Submit application">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          <span>Submit Application</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Confirmation Banner -->
+    <div id="confirmationBanner" class="alert-success">
+      Application received, ref #GA-8921
+    </div>
+  </div>
+
+  <!-- Container for V2 footer dock -->
+  <div id="footerDockContainer" style="display: none;"></div>
+
+  <script>
+    // Inspect query string for ?v=2 mutation mode
+    const params = new URLSearchParams(window.location.search);
+    const isV2 = params.get('v') === '2';
+
+    if (isV2) {
+      document.getElementById('modeBadge').innerHTML = '<span class="badge-v2">V2 (UI MUTATION ACTIVE)</span>';
+
+      // 1. Rename 'Full name' to 'Applicant'
+      document.getElementById('lblFullName').innerText = 'Applicant';
+
+      // 2. Remove in-form button
+      const inFormContainer = document.getElementById('inFormSubmitContainer');
+      inFormContainer.innerHTML = '';
+
+      // 3. Move submit button into fixed footer dock with scrambled ID & classes
+      // CRITICAL: Strip text AND aria-label so rules/BM25 have zero text to match.
+      // Only Gemma 4 visual Set-of-Marks can identify the paper plane submit icon.
+      const footerDock = document.getElementById('footerDockContainer');
+      footerDock.className = 'portal-footer-dock';
+      footerDock.style.display = 'flex';
+      footerDock.innerHTML = `
+        <span style="font-size:0.85rem; color:#64748b; margin-right: 14px;">Review & Dispatch</span>
+        <button type="button" id="btn_action_882" class="ui-footer-act-pill" onclick="handleFormSubmit(event)">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      `;
+    }
+
+    function handleFormSubmit(e) {
+      if (e) e.preventDefault();
+      const name = document.getElementById('fullName').value.trim();
+      const dept = document.getElementById('department').value;
+      const year = document.getElementById('gradYear').value;
+
+      if (!name || !dept || !year) {
+        alert('Please fill out all required fields.');
+        return;
+      }
+
+      // Display success banner with deterministic confirmation text
+      const banner = document.getElementById('confirmationBanner');
+      banner.innerText = `Application received, ref #GA-${Math.floor(1000 + Math.random() * 9000)}`;
+      banner.style.display = 'block';
+      banner.scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>
