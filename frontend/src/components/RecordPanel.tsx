@@ -73,7 +73,11 @@ export default function RecordPanel({ onRecordingComplete, onSelectStepToView }:
       };
       eventSourceRef.current = es;
     } catch (err: any) {
-      setError(err.message || 'Failed to start recording');
+      let msg = err.message || 'Failed to start recording';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg === 'Failed to start recording') {
+        msg = 'Cannot connect to backend server. Please verify backend is running (python scripts/start_stack.py)';
+      }
+      setError(msg);
     } finally {
       setIsLoading(false);
     }

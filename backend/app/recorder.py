@@ -3,10 +3,16 @@ Playwright-based interactive recording session for DemoToSkill.
 Launches a headed Chromium browser, injects client-side DOM event listeners,
 captures settled before/after screenshots, compresses them to 1024px JPEG,
 coalesces sequential input events, and broadcasts live steps to SSE queues.
+
+Thread-isolated: Runs Playwright inside a dedicated background thread with
+a Windows ProactorEventLoop to ensure complete reliability regardless of
+Uvicorn's server event loop policy.
 """
 
+import sys
 import uuid
 import asyncio
+import threading
 from typing import Optional, Callable, Any
 from pathlib import Path
 
@@ -32,12 +38,15 @@ class PlaywrightRecorder:
         self.subscribers: list[asyncio.Queue] = []
         self.is_active = False
 
+        self._thread: Optional[threading.Thread] = None
+        self._thread_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._main_loop: Optional[asyncio.AbstractEventLoop] = None
         self._playwright: Optional[Playwright] = None
         self._browser: Optional[Browser] = None
         self._context: Optional[BrowserContext] = None
         self._page: Optional[Page] = None
         self._step_counter = 0
-        self._lock = asyncio.Lock()
+        self._lock = threading.Lock()
 
     def subscribe(self) -> asyncio.Queue:
         """Subscribes an async queue to receive real-time step notifications."""
@@ -51,12 +60,19 @@ class PlaywrightRecorder:
             self.subscribers.remove(q)
 
     async def _broadcast(self, event_data: dict[str, Any]):
-        """Broadcasts event data to all connected SSE subscriber queues."""
-        for q in list(self.subscribers):
-            try:
-                await q.put(event_data)
-            except Exception:
-                pass
+        """Broadcasts event data to all connected SSE subscriber queues thread-safely."""
+        if self._main_loop and not self._main_loop.is_closed():
+            for q in list(self.subscribers):
+                try:
+                    self._main_loop.call_soon_threadsafe(q.put_nowait, event_data)
+                except Exception:
+                    pass
+        else:
+            for q in list(self.subscribers):
+                try:
+                    q.put_nowait(event_data)
+                except Exception:
+                    pass
 
     async def _settle_page(self):
         """Awaits DOM stability: network idle capped at 1.5s + 300ms pause."""
@@ -86,7 +102,7 @@ class PlaywrightRecorder:
 
     async def _handle_dom_event(self, source, event_data: dict[str, Any]):
         """Handler invoked when injected JavaScript dispatches window.__record."""
-        async with self._lock:
+        with self._lock:
             if not self.is_active:
                 return
 
@@ -146,98 +162,135 @@ class PlaywrightRecorder:
             })
 
     async def start(self, start_url: str, headed: bool = True) -> str:
-        """Launches browser, attaches listeners, and navigates to start_url."""
+        """Launches browser in isolated Proactor thread, attaches listeners, and navigates."""
         try:
-            self._playwright = await async_playwright().start()
+            self._main_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._main_loop = None
 
-            # Headed browser by default for human recording
-            launch_args = ["--no-default-browser-check"]
-            if headed:
-                launch_args.append("--start-maximized")
+        ready_evt = threading.Event()
+        err_box = []
 
-            self._browser = await self._playwright.chromium.launch(
-                headless=not headed,
-                args=launch_args
-            )
+        def _thread_target():
+            if sys.platform == "win32":
+                self._thread_loop = asyncio.WindowsProactorEventLoopPolicy().new_event_loop()
+            else:
+                self._thread_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._thread_loop)
 
-            self._context = await self._browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                ignore_https_errors=True
-            )
+            async def _init_session():
+                try:
+                    self._playwright = await async_playwright().start()
 
-            # Expose binding before adding scripts
-            await self._context.expose_binding("__record", self._handle_dom_event)
-            await self._context.add_init_script(INJECTED_RECORDER_JS)
+                    launch_args = ["--no-default-browser-check"]
+                    if headed:
+                        launch_args.append("--start-maximized")
 
-            self._page = await self._context.new_page()
-            self.is_active = True
-
-            # Navigate to start_url with timeout and domcontentloaded
-            try:
-                await self._page.goto(start_url, wait_until="domcontentloaded", timeout=15000)
-                await self._settle_page()
-            except Exception as nav_err:
-                err_str = str(nav_err)
-                if "ERR_CONNECTION_REFUSED" in err_str:
-                    raise ConnectionError(
-                        f"Cannot connect to '{start_url}' (Connection Refused). "
-                        f"Please ensure your target web application is running, or visit the embedded demo at 'http://localhost:8000/demo/'."
+                    self._browser = await self._playwright.chromium.launch(
+                        headless=not headed,
+                        args=launch_args
                     )
-                elif "Timeout" in err_str:
-                    raise TimeoutError(
-                        f"Navigation to '{start_url}' timed out after 15s. Please check that the URL is active and reachable."
+
+                    self._context = await self._browser.new_context(
+                        viewport={"width": 1280, "height": 800},
+                        ignore_https_errors=True
                     )
-                raise RuntimeError(f"Navigation failed: {err_str}")
 
-            # Record initial navigation step
-            self._step_counter += 1
-            initial_shot = await self._capture_screenshot("after")
-            nav_event = {
-                "idx": self._step_counter,
-                "action": "goto",
-                "url": start_url,
-                "shot_after": initial_shot
-            }
-            self.raw_events.append(nav_event)
+                    await self._context.expose_binding("__record", self._handle_dom_event)
+                    await self._context.add_init_script(INJECTED_RECORDER_JS)
 
-            step_dict = {
-                "idx": self._step_counter,
-                "action": "goto",
-                "value": start_url,
-                "url": start_url,
-                "shot_before": "",
-                "shot_after": initial_shot,
-                "intent": f"Navigate to {start_url}",
-                "locators": [],
-                "target_summary": start_url
-            }
+                    self._page = await self._context.new_page()
+                    self.is_active = True
 
-            await self._broadcast({
-                "type": "step_recorded",
-                "step": step_dict,
-                **step_dict
-            })
+                    try:
+                        await self._page.goto(start_url, wait_until="domcontentloaded", timeout=15000)
+                        await self._settle_page()
+                    except Exception as nav_err:
+                        err_str = str(nav_err)
+                        if "ERR_CONNECTION_REFUSED" in err_str:
+                            raise ConnectionError(
+                                f"Cannot connect to '{start_url}' (Connection Refused). "
+                                f"Please ensure your target web application is running, or visit the embedded demo at 'http://localhost:8000/demo/'."
+                            )
+                        elif "Timeout" in err_str:
+                            raise TimeoutError(
+                                f"Navigation to '{start_url}' timed out after 15s. Please check that the URL is active and reachable."
+                            )
+                        raise RuntimeError(f"Navigation failed: {err_str}")
 
-            return self.recording_id
-        except Exception:
-            # Cleanly tear down on any startup error so no zombie processes remain
+                    # Record initial navigation step
+                    self._step_counter += 1
+                    initial_shot = await self._capture_screenshot("after")
+                    nav_event = {
+                        "idx": self._step_counter,
+                        "action": "goto",
+                        "url": start_url,
+                        "shot_after": initial_shot
+                    }
+                    self.raw_events.append(nav_event)
+
+                    step_dict = {
+                        "idx": self._step_counter,
+                        "action": "goto",
+                        "value": start_url,
+                        "url": start_url,
+                        "shot_before": "",
+                        "shot_after": initial_shot,
+                        "intent": f"Navigate to {start_url}",
+                        "locators": [],
+                        "target_summary": start_url
+                    }
+
+                    await self._broadcast({
+                        "type": "step_recorded",
+                        "step": step_dict,
+                        **step_dict
+                    })
+                except Exception as e:
+                    err_box.append(e)
+                finally:
+                    ready_evt.set()
+
+            self._thread_loop.create_task(_init_session())
+            self._thread_loop.run_forever()
+
+        self._thread = threading.Thread(target=_thread_target, daemon=True)
+        self._thread.start()
+
+        # Await startup without blocking the calling async loop
+        while not ready_evt.is_set():
+            await asyncio.sleep(0.05)
+
+        if err_box:
             await self.stop()
-            raise
+            raise err_box[0]
+
+        return self.recording_id
 
     async def stop(self) -> list[Step]:
         """Stops the session, closes browser, and returns coalesced Step objects."""
         self.is_active = False
+        stopped_evt = threading.Event()
 
-        # Close browser instances cleanly
-        try:
-            if self._context:
-                await self._context.close()
-            if self._browser:
-                await self._browser.close()
-            if self._playwright:
-                await self._playwright.stop()
-        except Exception as e:
-            print(f"[Recorder] Error during browser teardown: {e}")
+        async def _close():
+            try:
+                if self._context:
+                    await self._context.close()
+                if self._browser:
+                    await self._browser.close()
+                if self._playwright:
+                    await self._playwright.stop()
+            except Exception as e:
+                print(f"[Recorder] Error during browser teardown: {e}")
+            finally:
+                if self._thread_loop and self._thread_loop.is_running():
+                    self._thread_loop.stop()
+                stopped_evt.set()
+
+        if self._thread_loop and self._thread_loop.is_running():
+            asyncio.run_coroutine_threadsafe(_close(), self._thread_loop)
+            while not stopped_evt.is_set():
+                await asyncio.sleep(0.05)
 
         # Broadcast completion
         await self._broadcast({"type": "recording_stopped", "recording_id": self.recording_id})
@@ -245,4 +298,3 @@ class PlaywrightRecorder:
         # Coalesce consecutive input keystrokes into final fill steps
         final_steps = coalesce_recorded_events(self.raw_events)
         return final_steps
-
