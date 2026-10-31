@@ -13,7 +13,7 @@ import {
   Code
 } from 'lucide-react';
 import { Step, Variable, WorkflowSpec } from '../types';
-import { startCompilation, approveCompilation, getImageUrl } from '../api';
+import { startCompilation, approveCompilation, getCompilation, getImageUrl } from '../api';
 
 interface StepEditorProps {
   recordingId: string;
@@ -73,60 +73,105 @@ export default function StepEditor({
     setError(null);
     setCompileStatus('Analyzing step intents with Gemma 4...');
 
+    let pollTimer: any = null;
+    let es: EventSource | null = null;
+
+    const cleanup = () => {
+      if (pollTimer) clearInterval(pollTimer);
+      if (es) {
+        es.close();
+        es = null;
+      }
+    };
+
+    const processInterrupt = (payload: any) => {
+      cleanup();
+      setReviewRequired(true);
+      setIsCompiling(false);
+      setCompileStatus('Gemma 4 parameter proposal ready for your confirmation.');
+      if (payload?.variables) {
+        setDetectedVariables(payload.variables);
+      }
+      if (payload?.steps) {
+        setSteps(payload.steps);
+      }
+      if (payload?.spec_name) {
+        setWorkflowName(payload.spec_name);
+      }
+    };
+
+    const processComplete = (spec: any) => {
+      cleanup();
+      setCompileStatus('Compilation & verification complete!');
+      setIsCompiling(false);
+      if (spec) {
+        onCompilationComplete(spec);
+      }
+    };
+
     try {
       const res = await startCompilation(recordingId);
       setCompileId(res.compile_id);
 
-      // Listen for compilation SSE events
-      const es = new EventSource(`/api/compile/${res.compile_id}/events`);
-      es.onmessage = (event) => {
+      // 1. Listen for compilation SSE events
+      es = new EventSource(`/api/compile/${res.compile_id}/events`);
+      
+      const handleData = (dataStr: string) => {
         try {
-          const data = JSON.parse(event.data);
+          const data = JSON.parse(dataStr);
           const isInterrupt = 
             data.type === 'interrupt' || 
             data.type === 'interrupt_review_intents' || 
-            data.interrupt_type === 'interrupt_review_intents' ||
-            data.node === 'review_intents';
+            data.interrupt_type === 'interrupt_review_intents' || 
+            data.node === 'review_intents' ||
+            data.status === 'review_pending';
 
           if (isInterrupt) {
-            setReviewRequired(true);
-            setIsCompiling(false);
-            setCompileStatus('Gemma 4 parameter proposal ready for your confirmation.');
-            const payload = data.payload || data.spec || {};
-            if (payload.variables) {
-              setDetectedVariables(payload.variables);
-            }
-            if (payload.steps) {
-              setSteps(payload.steps);
-            }
-            if (payload.spec_name) {
-              setWorkflowName(payload.spec_name);
-            }
-            es.close();
+            processInterrupt(data.payload || data.spec || {});
           } else if (data.type === 'node_update' || data.type === 'node_start') {
             setCompileStatus(`LangGraph running node: ${data.node}...`);
           } else if (data.type === 'compile_completed') {
-            setCompileStatus('Compilation & verification complete!');
-            setIsCompiling(false);
-            es.close();
-            if (data.spec) {
-              onCompilationComplete(data.spec);
-            }
+            processComplete(data.spec);
           } else if (data.type === 'compile_error') {
+            cleanup();
             setError(data.error || 'Compilation failed');
             setIsCompiling(false);
-            es.close();
           }
         } catch (e) {
           console.error('Error parsing compile event:', e);
         }
       };
 
+      es.onmessage = (event) => handleData(event.data);
+      es.addEventListener('interrupt', (e: any) => handleData(e.data));
+      es.addEventListener('compile_completed', (e: any) => handleData(e.data));
+      es.addEventListener('compile_error', (e: any) => handleData(e.data));
+      es.addEventListener('node_update', (e: any) => handleData(e.data));
+
       es.onerror = () => {
-        es.close();
+        // SSE error or reconnection, poll timer handles fallback
       };
 
+      // 2. Fallback Active Polling every 1.2s to guarantee no UI hang
+      pollTimer = setInterval(async () => {
+        try {
+          const statusRes = await getCompilation(res.compile_id);
+          if (statusRes.status === 'review_pending') {
+            processInterrupt(statusRes.payload || statusRes.spec || {});
+          } else if (statusRes.status === 'completed') {
+            processComplete(statusRes.payload || statusRes.spec);
+          } else if (statusRes.status === 'failed') {
+            cleanup();
+            setError(statusRes.error || 'Compilation failed');
+            setIsCompiling(false);
+          }
+        } catch (err) {
+          // Ignore polling errors
+        }
+      }, 1200);
+
     } catch (err: any) {
+      cleanup();
       setError(err.message || 'Compilation failed to start');
       setIsCompiling(false);
     }
@@ -136,6 +181,18 @@ export default function StepEditor({
     if (!compileId) return;
     setIsCompiling(true);
     setCompileStatus('Executing trial run and dual-layer verification...');
+    
+    let pollTimer: any = null;
+    let es: EventSource | null = null;
+
+    const cleanup = () => {
+      if (pollTimer) clearInterval(pollTimer);
+      if (es) {
+        es.close();
+        es = null;
+      }
+    };
+
     try {
       await approveCompilation(compileId, {
         name: workflowName,
@@ -143,23 +200,54 @@ export default function StepEditor({
         steps: steps
       });
 
-      // Poll or reconnect SSE to await final verification and save
-      const es = new EventSource(`/api/compile/${compileId}/events`);
-      es.onmessage = (event) => {
+      // 1. SSE listener
+      es = new EventSource(`/api/compile/${compileId}/events`);
+      
+      const handleData = (dataStr: string) => {
         try {
-          const data = JSON.parse(event.data);
-          if (data.status === 'saved' || data.type === 'compile_completed') {
-            es.close();
+          const data = JSON.parse(dataStr);
+          if (data.status === 'saved' || data.type === 'compile_completed' || data.status === 'completed') {
+            cleanup();
             setIsCompiling(false);
             if (data.spec) {
               onCompilationComplete(data.spec);
             }
+          } else if (data.type === 'compile_error') {
+            cleanup();
+            setError(data.error || 'Verification failed');
+            setIsCompiling(false);
           }
         } catch (e) {
           console.error(e);
         }
       };
+
+      es.onmessage = (event) => handleData(event.data);
+      es.addEventListener('compile_completed', (e: any) => handleData(e.data));
+      es.addEventListener('compile_error', (e: any) => handleData(e.data));
+
+      // 2. Active Polling fallback
+      pollTimer = setInterval(async () => {
+        try {
+          const statusRes = await getCompilation(compileId);
+          if (statusRes.status === 'completed') {
+            cleanup();
+            setIsCompiling(false);
+            if (statusRes.payload || statusRes.spec) {
+              onCompilationComplete(statusRes.payload || statusRes.spec);
+            }
+          } else if (statusRes.status === 'failed') {
+            cleanup();
+            setError(statusRes.error || 'Verification failed');
+            setIsCompiling(false);
+          }
+        } catch (err) {
+          // Ignore polling errors
+        }
+      }, 1200);
+
     } catch (err: any) {
+      cleanup();
       setError(err.message || 'Failed to approve compilation');
       setIsCompiling(false);
     }

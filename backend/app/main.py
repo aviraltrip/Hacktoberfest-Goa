@@ -333,6 +333,41 @@ async def start_compilation(req: CompileStartRequest):
     }
 
 
+@app.get("/api/compile/{id}")
+async def get_compilation(id: str):
+    """Returns compilation status and interrupt payload for REST polling."""
+    session = active_compilations.get(id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Compilation session not found")
+
+    status = session.get("status", "unknown")
+    state = session.get("state", {})
+    payload = {}
+
+    if status == "review_pending":
+        try:
+            state_snapshot = session["graph"].get_state(session["config"])
+            if state_snapshot.tasks and state_snapshot.tasks[0].interrupts:
+                payload = state_snapshot.tasks[0].interrupts[0].value
+        except Exception:
+            pass
+    elif status == "completed":
+        spec_obj = state.get("spec")
+        payload = spec_obj.model_dump() if hasattr(spec_obj, "model_dump") else spec_obj
+    else:
+        spec_obj = state.get("spec")
+        if spec_obj:
+            payload = spec_obj.model_dump() if hasattr(spec_obj, "model_dump") else spec_obj
+
+    return {
+        "compile_id": id,
+        "status": status,
+        "payload": payload,
+        "spec": payload,
+        "error": session.get("error")
+    }
+
+
 @app.get("/api/compile/{id}/events")
 async def stream_compile_events(request: Request, id: str):
     """Server-Sent Events (SSE) stream for compilation progress and interrupt events."""
@@ -344,15 +379,28 @@ async def stream_compile_events(request: Request, id: str):
 
     async def sse_generator():
         try:
-            yield f"event: connected\ndata: {json.dumps({'compile_id': id, 'status': session['status']})}\n\n"
+            yield f"data: {json.dumps({'type': 'connected', 'compile_id': id, 'status': session['status']})}\n\n"
+            
+            # Immediately replay current state if graph is already paused at interrupt or completed
+            if session.get("status") == "review_pending":
+                try:
+                    state_snapshot = session["graph"].get_state(session["config"])
+                    interrupt_val = state_snapshot.tasks[0].interrupts[0].value if state_snapshot.tasks and state_snapshot.tasks[0].interrupts else {}
+                    yield f"data: {json.dumps({'type': 'interrupt', 'interrupt_type': 'interrupt_review_intents', 'node': 'review_intents', 'payload': interrupt_val, 'spec': interrupt_val})}\n\n"
+                except Exception:
+                    pass
+            elif session.get("status") == "completed":
+                spec_obj = session.get("state", {}).get("spec")
+                if spec_obj:
+                    yield f"data: {json.dumps({'type': 'compile_completed', 'spec': spec_obj.model_dump() if hasattr(spec_obj, 'model_dump') else spec_obj})}\n\n"
+
             while True:
                 if await request.is_disconnected():
                     break
                 try:
                     event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
-                    event_type = event.get("type", "compile_progress")
-                    yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
-                    if event_type in ("compile_completed", "compile_error"):
+                    yield f"data: {json.dumps(event)}\n\n"
+                    if event.get("type") in ("compile_completed", "compile_error"):
                         break
                 except asyncio.TimeoutError:
                     yield ": ping\n\n"
@@ -539,15 +587,14 @@ async def stream_run_events(request: Request, id: str):
 
     async def sse_generator():
         try:
-            yield f"event: connected\ndata: {json.dumps({'run_id': id, 'status': session['status']})}\n\n"
+            yield f"data: {json.dumps({'type': 'connected', 'run_id': id, 'status': session['status']})}\n\n"
             while True:
                 if await request.is_disconnected():
                     break
                 try:
                     event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
-                    event_type = event.get("type", "run_progress")
-                    yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
-                    if event_type in ("run_completed", "run_error"):
+                    yield f"data: {json.dumps(event)}\n\n"
+                    if event.get("type") in ("run_completed", "run_error"):
                         break
                 except asyncio.TimeoutError:
                     yield ": ping\n\n"

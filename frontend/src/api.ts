@@ -60,6 +60,14 @@ export async function startCompilation(recordingId: string) {
   return handleResponse<{ compile_id: string; status: string }>(res, 'Failed to start compilation');
 }
 
+export async function getCompilation(compileId: string) {
+  const res = await fetch(`${API_BASE}/compile/${compileId}`);
+  return handleResponse<{ compile_id: string; status: string; payload: any; spec?: any; error?: string }>(
+    res,
+    'Failed to fetch compilation status'
+  );
+}
+
 export async function approveCompilation(compileId: string, updates: { name?: string; variables?: Variable[]; steps?: Step[] }) {
   const res = await fetch(`${API_BASE}/compile/${compileId}/approve`, {
     method: 'POST',
