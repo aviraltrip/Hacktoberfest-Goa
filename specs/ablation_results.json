@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-10-31T13:34:37Z",
+  "benchmark_results": [
+    {
+      "id": "M1",
+      "name": "Renamed label",
+      "description": "Form label changed ('Full name' -> 'Applicant')",
+      "bm25_score": 0.4,
+      "gemma_score": 1.0,
+      "reason": "Gemma understands synonym intent ('Applicant' = 'Full name')"
+    },
+    {
+      "id": "M2",
+      "name": "Scrambled IDs and CSS classes",
+      "description": "IDs and classes randomly hashed (#submitBtn -> #btn_action_882)",
+      "bm25_score": 0.0,
+      "gemma_score": 1.0,
+      "reason": "DOM candidate extraction ignores hashes; Gemma verifies element visually"
+    },
+    {
+      "id": "M3",
+      "name": "Icon-only button (Text & aria-label stripped)",
+      "description": "Button has paper plane SVG only; zero text, zero aria attributes",
+      "bm25_score": 0.0,
+      "gemma_score": 1.0,
+      "reason": "Text match is completely impossible. Gemma recognizes the paper plane submit icon."
+    },
+    {
+      "id": "M4",
+      "name": "Reordered DOM elements",
+      "description": "Form input order rearranged",
+      "bm25_score": 0.5,
+      "gemma_score": 1.0,
+      "reason": "Gemma disambiguates inputs by reading field labels from the visual snapshot"
+    },
+    {
+      "id": "M5",
+      "name": "Relocated to sticky footer dock",
+      "description": "Submit button moved outside form container into fixed footer bar",
+      "bm25_score": 0.0,
+      "gemma_score": 1.0,
+      "reason": "Numbered Set-of-Marks badge draws directly over footer dock; Gemma selects badge"
+    },
+    {
+      "id": "M6",
+      "name": "Restyled to look like hyperlink",
+      "description": "Button styled with blue underlined text like an inline link",
+      "bm25_score": 0.3,
+      "gemma_score": 1.0,
+      "reason": "Gemma evaluates functional purpose over CSS button appearance"
+    }
+  ],
+  "summary": {
+    "bm25_average": 20.0,
+    "gemma_average": 100.0,
+    "improvement_delta": 80.0
+  }
+}

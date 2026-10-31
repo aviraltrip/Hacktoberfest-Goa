@@ -30,6 +30,8 @@ wheels/
 htmlcov/
 data/
 specs/*.json
+!specs/ablation_results.json
+!specs/*.sample.json
 
 # Node & Frontend
 node_modules/

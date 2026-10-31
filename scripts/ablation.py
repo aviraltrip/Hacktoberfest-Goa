@@ -8,8 +8,15 @@ Demonstrates to hackathon judges why Gemma 4 is indispensable.
 """
 
 import os
+import sys
 import json
 import time
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 MUTATIONS = [
     {
@@ -64,7 +71,7 @@ MUTATIONS = [
 
 def run_ablation():
     print("=" * 80)
-    print("📊 DEMOTOSKILL: GEMMA 4 HEALING ABLATION BENCHMARK")
+    print("[BENCHMARK] DEMOTOSKILL: GEMMA 4 HEALING ABLATION BENCHMARK")
     print("=" * 80)
     print(f"{'ID':<4} | {'Mutation Description':<36} | {'No LLM (BM25)':<14} | {'Gemma 4 SoM':<12}")
     print("-" * 80)
@@ -85,7 +92,7 @@ def run_ablation():
     print("-" * 80)
     print(f"AVERAGE RECOVERY RATE:                      | {avg_bm25:.1f}%        | {avg_gemma:.1f}%")
     print("=" * 80)
-    print("\n💡 Key Finding for Judges:")
+    print("\n[KEY FINDING FOR JUDGES]:")
     print("   On M3 (Icon-Only Button), rule-based methods have a 0% success rate because the DOM")
     print("   contains NO text or aria-label. Gemma 4 achieves 100% visual recovery using Set-of-Marks.")
 
