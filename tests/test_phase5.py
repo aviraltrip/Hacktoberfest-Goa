@@ -16,33 +16,60 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
-# Ensure backend directory is in sys.path
-BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
-sys.path.insert(0, str(BACKEND_DIR))
+ROOT_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = ROOT_DIR / "backend"
+for p in (str(BACKEND_DIR), str(ROOT_DIR)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-from app.models import (
-    Locator,
-    Step,
-    Variable,
-    SuccessCondition,
-    WorkflowSpec,
-    CandidateElement,
-    HealProposal,
-    RowResult,
-    StepResult
-)
-from app.candidates import (
-    rank_candidates_bm25,
-    format_candidates_table
-)
-from app.memory import HealMemory
-from app.nodes.repair import (
-    validate_role_compatibility,
-    synthesize_new_locator,
-    format_heal_prompt
-)
-from app.graphs import build_run_graph
-from app.main import app, active_runs
+try:
+    from app.models import (
+        Locator,
+        Step,
+        Variable,
+        SuccessCondition,
+        WorkflowSpec,
+        CandidateElement,
+        HealProposal,
+        RowResult,
+        StepResult
+    )
+    from app.candidates import (
+        rank_candidates_bm25,
+        format_candidates_table
+    )
+    from app.memory import HealMemory
+    from app.nodes.repair import (
+        validate_role_compatibility,
+        synthesize_new_locator,
+        format_heal_prompt
+    )
+    from app.graphs import build_run_graph
+    from app.main import app, active_runs
+except ImportError:
+    from backend.app.models import (
+        Locator,
+        Step,
+        Variable,
+        SuccessCondition,
+        WorkflowSpec,
+        CandidateElement,
+        HealProposal,
+        RowResult,
+        StepResult
+    )
+    from backend.app.candidates import (
+        rank_candidates_bm25,
+        format_candidates_table
+    )
+    from backend.app.memory import HealMemory
+    from backend.app.nodes.repair import (
+        validate_role_compatibility,
+        synthesize_new_locator,
+        format_heal_prompt
+    )
+    from backend.app.graphs import build_run_graph
+    from backend.app.main import app, active_runs
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 

@@ -14,28 +14,50 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
-# Ensure backend directory is in sys.path
-BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
-sys.path.insert(0, str(BACKEND_DIR))
+ROOT_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = ROOT_DIR / "backend"
+for p in (str(BACKEND_DIR), str(ROOT_DIR)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-from app.models import (
-    Locator,
-    Step,
-    Variable,
-    SuccessCondition,
-    WorkflowSpec,
-    StepResult,
-    RowResult,
-    VerifyVisualOutput
-)
-from app.runner import (
-    interpolate_template,
-    resolve_locator,
-    to_playwright_locator
-)
-from app.nodes.verify import verify_single_row, format_verify_prompt
-from app.nodes.compile_spec import save_spec_to_file
-from app.main import app, active_runs
+try:
+    from app.models import (
+        Locator,
+        Step,
+        Variable,
+        SuccessCondition,
+        WorkflowSpec,
+        StepResult,
+        RowResult,
+        VerifyVisualOutput
+    )
+    from app.runner import (
+        interpolate_template,
+        resolve_locator,
+        to_playwright_locator
+    )
+    from app.nodes.verify import verify_single_row, format_verify_prompt
+    from app.nodes.compile_spec import save_spec_to_file
+    from app.main import app, active_runs
+except ImportError:
+    from backend.app.models import (
+        Locator,
+        Step,
+        Variable,
+        SuccessCondition,
+        WorkflowSpec,
+        StepResult,
+        RowResult,
+        VerifyVisualOutput
+    )
+    from backend.app.runner import (
+        interpolate_template,
+        resolve_locator,
+        to_playwright_locator
+    )
+    from backend.app.nodes.verify import verify_single_row, format_verify_prompt
+    from backend.app.nodes.compile_spec import save_spec_to_file
+    from backend.app.main import app, active_runs
 
 
 class TestPhase4Runner(unittest.TestCase):

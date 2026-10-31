@@ -100,8 +100,12 @@ def compile_spec_node(state: CompileState) -> dict[str, Any]:
     # Generate synthetic trial rows to test generalization in Phase 4
     trial_rows = generate_trial_rows(spec.variables)
 
-    return {
+    res = {
         "spec": spec,
         "trial_rows": trial_rows,
         "status": "testing"
     }
+    if state.get("results"):
+        res["results"] = state["results"]
+
+    return res

@@ -26,6 +26,27 @@ from app.config import DB_PATH, SPECS_DIR
 MAX_REPAIRS = 2
 
 
+def create_memory_saver() -> MemorySaver:
+    """Creates a MemorySaver with registered Pydantic models for safe msgpack deserialization."""
+    try:
+        from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+        allowed = [
+            ("app.models", "WorkflowSpec"),
+            ("app.models", "RowResult"),
+            ("app.models", "StepResult"),
+            ("app.models", "Step"),
+            ("app.models", "Locator"),
+            ("app.models", "Variable"),
+            ("app.models", "SuccessCondition"),
+            ("app.models", "CandidateElement"),
+            ("app.models", "HealProposal"),
+        ]
+        serde = JsonPlusSerializer().with_msgpack_allowlist(allowed)
+        return MemorySaver(serde=serde)
+    except Exception:
+        return MemorySaver()
+
+
 # ---------------------------------------------------------------------------
 # Compile Graph Routing & Construction
 # ---------------------------------------------------------------------------
@@ -45,7 +66,7 @@ def build_compile_graph(checkpointer: Optional[Any] = None):
     Constructs and compiles the LangGraph Compile Graph.
     Uses MemorySaver checkpointer for state persistence and human-in-the-loop review interrupts.
     """
-    chk = checkpointer if checkpointer is not None else MemorySaver()
+    chk = checkpointer if checkpointer is not None else create_memory_saver()
     builder = StateGraph(CompileState)
 
     builder.add_node("understand", understand_node)
@@ -240,7 +261,7 @@ def build_run_graph(checkpointer: Optional[Any] = None):
     Constructs and compiles the LangGraph Run Graph with self-healing loop:
     load_spec -> run_rows -> (failed -> heal -> review_heal -> patch_spec -> run_rows)
     """
-    chk = checkpointer if checkpointer is not None else MemorySaver()
+    chk = checkpointer if checkpointer is not None else create_memory_saver()
     builder = StateGraph(RunState)
 
     builder.add_node("load_spec", load_spec_node)

@@ -54,8 +54,12 @@ def review_intents_node(state: CompileState) -> dict[str, Any]:
                 for s in human_input["steps"]
             ]
 
-    return {
+    update = {
         "spec": current_spec,
         "intents_approved": True,
         "status": "compiling"
     }
+    if isinstance(human_input, dict) and "results" in human_input:
+        update["results"] = human_input["results"]
+
+    return update

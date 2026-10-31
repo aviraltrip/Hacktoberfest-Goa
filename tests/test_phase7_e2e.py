@@ -15,25 +15,46 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
-sys.path.insert(0, str(BACKEND_DIR))
+ROOT_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = ROOT_DIR / "backend"
+for p in (str(BACKEND_DIR), str(ROOT_DIR)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-from app.models import (
-    Locator,
-    Step,
-    Variable,
-    SuccessCondition,
-    WorkflowSpec,
-    CandidateElement,
-    HealProposal,
-    RowResult,
-    StepResult,
-    CompileState,
-    RunState
-)
-from app.graphs import build_compile_graph, build_run_graph
-from app.nodes.repair import validate_role_compatibility, synthesize_new_locator
-from app.exporter import export_standalone_script
+try:
+    from app.models import (
+        Locator,
+        Step,
+        Variable,
+        SuccessCondition,
+        WorkflowSpec,
+        CandidateElement,
+        HealProposal,
+        RowResult,
+        StepResult,
+        CompileState,
+        RunState
+    )
+    from app.graphs import build_compile_graph, build_run_graph
+    from app.nodes.repair import validate_role_compatibility, synthesize_new_locator
+    from app.exporter import export_standalone_script
+except ImportError:
+    from backend.app.models import (
+        Locator,
+        Step,
+        Variable,
+        SuccessCondition,
+        WorkflowSpec,
+        CandidateElement,
+        HealProposal,
+        RowResult,
+        StepResult,
+        CompileState,
+        RunState
+    )
+    from backend.app.graphs import build_compile_graph, build_run_graph
+    from backend.app.nodes.repair import validate_role_compatibility, synthesize_new_locator
+    from backend.app.exporter import export_standalone_script
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
