@@ -238,3 +238,4 @@ def coalesce_recorded_events(raw_events: list[dict[str, Any]]) -> list[Step]:
     flush_pending_fill()
 
     return coalesced
+

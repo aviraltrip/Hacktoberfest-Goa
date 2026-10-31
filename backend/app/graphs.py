@@ -9,7 +9,6 @@ Both graphs share MemorySaver checkpointers and state models.
 from typing import Optional, Any
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.types import Command
 
 from app.models import CompileState, RunState
 from app.nodes.understand import understand_node
@@ -24,9 +23,8 @@ MAX_REPAIRS = 2
 # (trial_run, verify, repair, save will be fully populated in Phase 4 & 5)
 # ---------------------------------------------------------------------------
 
-async def trial_run_node(state: CompileState) -> dict[str, Any]:
+def trial_run_node(state: CompileState) -> dict[str, Any]:
     """Trial run execution node across test rows (Bridge to Phase 4)."""
-    # If trial results already present or simulated, pass through
     results = state.get("results") or []
     return {
         "results": results,
@@ -34,15 +32,14 @@ async def trial_run_node(state: CompileState) -> dict[str, Any]:
     }
 
 
-async def verify_node(state: CompileState) -> dict[str, Any]:
+def verify_node(state: CompileState) -> dict[str, Any]:
     """Verification node evaluating deterministic + visual success criteria (Bridge to Phase 4)."""
-    # If no failures recorded, mark verified
     return {
         "status": "verifying"
     }
 
 
-async def repair_node(state: CompileState) -> dict[str, Any]:
+def repair_node(state: CompileState) -> dict[str, Any]:
     """Repair node utilizing Set-of-Marks visual prompt (Bridge to Phase 5)."""
     repairs = state.get("repairs_count", 0) + 1
     return {
@@ -51,7 +48,7 @@ async def repair_node(state: CompileState) -> dict[str, Any]:
     }
 
 
-async def save_node(state: CompileState) -> dict[str, Any]:
+def save_node(state: CompileState) -> dict[str, Any]:
     """Save finalized workflow to SQLite and export (Bridge to Phase 4/5)."""
     return {
         "status": "saved"
@@ -80,7 +77,7 @@ def build_compile_graph(checkpointer: Optional[Any] = None):
     chk = checkpointer if checkpointer is not None else MemorySaver()
     builder = StateGraph(CompileState)
 
-    # Register nodes
+    # Register nodes (all synchronous for full cross-version & Windows compatibility)
     builder.add_node("understand", understand_node)
     builder.add_node("review_intents", review_intents_node)  # Interrupts for human confirmation
     builder.add_node("compile_spec", compile_spec_node)

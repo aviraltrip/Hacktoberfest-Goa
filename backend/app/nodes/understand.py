@@ -10,7 +10,7 @@ import asyncio
 from pathlib import Path
 from typing import Optional, Any
 
-from app.config import PROMPTS_DIR, SHOTS_DIR, ROOT_DIR
+from app.config import PROMPTS_DIR, SHOTS_DIR
 from app.models import (
     Step,
     Variable,
@@ -28,18 +28,15 @@ def _resolve_image_path(shot_url_or_path: str) -> Optional[Path]:
     if not shot_url_or_path:
         return None
 
-    # Handle /static/shots/filename
     if shot_url_or_path.startswith("/static/shots/"):
         filename = shot_url_or_path.replace("/static/shots/", "")
         p = SHOTS_DIR / filename
         return p if p.exists() else None
 
-    # Handle relative or absolute paths
     p = Path(shot_url_or_path)
     if p.exists():
         return p
 
-    # Check under SHOTS_DIR
     p_shots = SHOTS_DIR / shot_url_or_path
     if p_shots.exists():
         return p_shots
@@ -114,7 +111,6 @@ async def understand_single_step(
     """
     llm = client or gemma_client
 
-    # If action is 'goto', navigation intent is straightforward
     if step.action == "goto":
         step.intent = f"Navigate to {step.value or 'target URL'}"
         return step, None
@@ -126,7 +122,6 @@ async def understand_single_step(
         previous_intent=previous_intent
     )
 
-    # Collect available screenshots
     images: list[Path] = []
     before_path = _resolve_image_path(step.shot_before)
     after_path = _resolve_image_path(step.shot_after)
@@ -149,7 +144,6 @@ async def understand_single_step(
 
         if output.role == "variable" and output.variable_name:
             var_name = output.variable_name.strip()
-            # Retain original value as example, replace step value with {{var_name}}
             example_val = step.value or ""
             step.value = f"{{{{{var_name}}}}}"
             var_obj = Variable(
@@ -162,7 +156,6 @@ async def understand_single_step(
 
     except Exception as e:
         print(f"[UnderstandNode] Step {step.idx} understanding warning: {e}")
-        # Graceful fallback: retain rule-based intent
         if not step.intent:
             step.intent = f"Perform {step.action} on {step.dom_context[:40]}"
         return step, None
@@ -196,7 +189,6 @@ async def understand_workflow_synthesis(
         return output
     except Exception as e:
         print(f"[UnderstandNode] Workflow synthesis fallback: {e}")
-        # Deterministic fallback
         return UnderstandWorkflowOutput(
             name="Automated Portal Workflow",
             variables=[],
@@ -207,11 +199,8 @@ async def understand_workflow_synthesis(
         )
 
 
-async def understand_node(state: CompileState) -> dict[str, Any]:
-    """
-    LangGraph Compile Graph node: 'understand'.
-    Executes Pass 1 on all recorded steps and Pass 2 on the consolidated workflow.
-    """
+async def _async_understand_pipeline(state: CompileState) -> dict[str, Any]:
+    """Underlying async execution pipeline for step & workflow understanding."""
     raw_steps = list(state.get("raw_steps") or [])
     if not raw_steps:
         return {"status": "failed", "error": "No raw steps available for understanding"}
@@ -220,7 +209,6 @@ async def understand_node(state: CompileState) -> dict[str, Any]:
     detected_variables: dict[str, Variable] = {}
     prev_intent = ""
 
-    # Pass 1: Process steps sequentially to preserve narrative context
     for s in raw_steps:
         updated_step, var_obj = await understand_single_step(
             step=s,
@@ -231,24 +219,20 @@ async def understand_node(state: CompileState) -> dict[str, Any]:
         if var_obj and var_obj.name not in detected_variables:
             detected_variables[var_obj.name] = var_obj
 
-    # Pass 2: Workflow level synthesis
     final_shot = processed_steps[-1].shot_after if processed_steps else None
     wf_output = await understand_workflow_synthesis(
         steps=processed_steps,
         final_shot=final_shot
     )
 
-    # Merge detected variables with Pass 2 variables
     merged_variables: list[Variable] = list(detected_variables.values())
     for v in wf_output.variables:
         if v.name not in detected_variables:
             merged_variables.append(v)
         else:
-            # If options were detected for a select, attach them
             if v.options and not detected_variables[v.name].options:
                 detected_variables[v.name].options = v.options
 
-    # Build draft WorkflowSpec
     start_url = processed_steps[0].value if processed_steps and processed_steps[0].action == "goto" else "http://localhost:8080"
     spec = WorkflowSpec(
         id=f"spec_{state.get('recording_id', 'draft')}",
@@ -265,3 +249,23 @@ async def understand_node(state: CompileState) -> dict[str, Any]:
         "status": "review_pending",
         "intents_approved": False
     }
+
+
+def understand_node(state: CompileState) -> dict[str, Any]:
+    """
+    LangGraph Compile Graph synchronous node: 'understand'.
+    Runs the multimodal understanding pipeline synchronously to ensure full
+    compatibility with LangGraph checkpointer and interrupt mechanisms across Python versions.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If called inside an active loop (e.g. from an async runner task), create task or new loop
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, _async_understand_pipeline(state))
+                return future.result()
+        else:
+            return loop.run_until_complete(_async_understand_pipeline(state))
+    except RuntimeError:
+        return asyncio.run(_async_understand_pipeline(state))

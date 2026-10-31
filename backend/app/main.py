@@ -186,51 +186,63 @@ async def stream_record_events(request: Request, id: str = Query(..., descriptio
 
 
 # ---------------------------------------------------------------------------
-# Compilation Endpoints
+# Compilation Endpoints & Thread Worker
 # ---------------------------------------------------------------------------
 
-async def _run_compile_task(compile_id: str, graph: Any, config: dict, initial_state: dict, event_queue: asyncio.Queue):
-    """Executes the compile graph asynchronously while broadcasting events to SSE queue."""
+def _run_compile_thread_worker(compile_id: str, graph: Any, config: dict, initial_state: dict, event_queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
+    """Executes the compile graph synchronously inside a worker thread to ensure complete interrupt compatibility."""
     session = active_compilations[compile_id]
     try:
-        await event_queue.put({"type": "compile_started", "compile_id": compile_id})
+        loop.call_soon_threadsafe(event_queue.put_nowait, {"type": "compile_started", "compile_id": compile_id})
 
-        # Run graph until interrupt or completion
-        async for chunk in graph.astream(initial_state, config=config):
-            # chunk is {node_name: state_update}
+        for chunk in graph.stream(initial_state, config=config):
             for node_name, update in chunk.items():
-                await event_queue.put({
-                    "type": "node_update",
-                    "node": node_name,
-                    "status": update.get("status", "running"),
-                    "spec": update.get("spec").model_dump() if update.get("spec") else None
-                })
+                if node_name == "__interrupt__":
+                    continue
+                spec_dump = None
+                if isinstance(update, dict) and update.get("spec"):
+                    spec_dump = update["spec"].model_dump() if hasattr(update["spec"], "model_dump") else update["spec"]
+                status_str = update.get("status", "running") if isinstance(update, dict) else "running"
 
-        # Inspect final state or interrupt state
+                loop.call_soon_threadsafe(
+                    event_queue.put_nowait,
+                    {
+                        "type": "node_update",
+                        "node": node_name,
+                        "status": status_str,
+                        "spec": spec_dump
+                    }
+                )
+
         state_snapshot = graph.get_state(config)
         session["state"] = state_snapshot.values
 
         if state_snapshot.next:
-            # Graph paused at an interrupt (e.g. review_intents)
             next_node = state_snapshot.next[0]
             session["status"] = "review_pending"
             interrupt_val = state_snapshot.tasks[0].interrupts[0].value if state_snapshot.tasks and state_snapshot.tasks[0].interrupts else {}
-            await event_queue.put({
-                "type": "interrupt",
-                "node": next_node,
-                "payload": interrupt_val
-            })
+            loop.call_soon_threadsafe(
+                event_queue.put_nowait,
+                {
+                    "type": "interrupt",
+                    "node": next_node,
+                    "payload": interrupt_val
+                }
+            )
         else:
             session["status"] = "completed"
-            await event_queue.put({
-                "type": "compile_completed",
-                "spec": session["state"].get("spec").model_dump() if session["state"].get("spec") else None
-            })
-
+            spec_obj = session["state"].get("spec")
+            loop.call_soon_threadsafe(
+                event_queue.put_nowait,
+                {
+                    "type": "compile_completed",
+                    "spec": spec_obj.model_dump() if hasattr(spec_obj, "model_dump") else spec_obj
+                }
+            )
     except Exception as e:
         session["status"] = "failed"
         session["error"] = str(e)
-        await event_queue.put({"type": "compile_error", "error": str(e)})
+        loop.call_soon_threadsafe(event_queue.put_nowait, {"type": "compile_error", "error": str(e)})
 
 
 @app.post("/api/compile")
@@ -238,7 +250,6 @@ async def start_compilation(req: CompileStartRequest):
     """Starts the LangGraph Compile Graph for a completed recording session."""
     raw_steps = completed_recordings.get(req.recording_id)
     if not raw_steps:
-        # Check if active recorder exists
         rec = active_recorders.get(req.recording_id)
         if rec and not rec.is_active:
             raw_steps = await rec.stop()
@@ -250,7 +261,6 @@ async def start_compilation(req: CompileStartRequest):
     thread_id = f"thread_{compile_id}"
     event_queue = asyncio.Queue()
 
-    # Build fresh graph instance with checkpointing
     graph = build_compile_graph()
     config = {"configurable": {"thread_id": thread_id}}
 
@@ -271,14 +281,16 @@ async def start_compilation(req: CompileStartRequest):
         "state": initial_state
     }
 
-    # Launch background compilation task
+    loop = asyncio.get_running_loop()
     asyncio.create_task(
-        _run_compile_task(
-            compile_id=compile_id,
-            graph=graph,
-            config=config,
-            initial_state=initial_state,
-            event_queue=event_queue
+        asyncio.to_thread(
+            _run_compile_thread_worker,
+            compile_id,
+            graph,
+            config,
+            initial_state,
+            event_queue,
+            loop
         )
     )
 
@@ -345,31 +357,45 @@ async def approve_compilation(id: str, req: CompileApproveRequest):
     if req.steps is not None:
         resume_payload["steps"] = [s.model_dump() for s in req.steps]
 
-    # Resume graph execution with Command
-    async def _resume_task():
+    def _resume_sync_worker(loop):
         try:
-            await event_queue.put({"type": "review_approved", "compile_id": id})
-            async for chunk in graph.astream(Command(resume=resume_payload), config=config):
+            loop.call_soon_threadsafe(event_queue.put_nowait, {"type": "review_approved", "compile_id": id})
+            for chunk in graph.stream(Command(resume=resume_payload), config=config):
                 for node_name, update in chunk.items():
-                    await event_queue.put({
-                        "type": "node_update",
-                        "node": node_name,
-                        "status": update.get("status", "running"),
-                        "spec": update.get("spec").model_dump() if update.get("spec") else None
-                    })
+                    if node_name == "__interrupt__":
+                        continue
+                    spec_dump = None
+                    if isinstance(update, dict) and update.get("spec"):
+                        spec_dump = update["spec"].model_dump() if hasattr(update["spec"], "model_dump") else update["spec"]
+                    status_str = update.get("status", "running") if isinstance(update, dict) else "running"
+
+                    loop.call_soon_threadsafe(
+                        event_queue.put_nowait,
+                        {
+                            "type": "node_update",
+                            "node": node_name,
+                            "status": status_str,
+                            "spec": spec_dump
+                        }
+                    )
 
             state_snapshot = graph.get_state(config)
             session["state"] = state_snapshot.values
             session["status"] = "completed"
-            await event_queue.put({
-                "type": "compile_completed",
-                "spec": session["state"].get("spec").model_dump() if session["state"].get("spec") else None
-            })
+            spec_obj = session["state"].get("spec")
+            loop.call_soon_threadsafe(
+                event_queue.put_nowait,
+                {
+                    "type": "compile_completed",
+                    "spec": spec_obj.model_dump() if hasattr(spec_obj, "model_dump") else spec_obj
+                }
+            )
         except Exception as e:
             session["status"] = "failed"
-            await event_queue.put({"type": "compile_error", "error": str(e)})
+            loop.call_soon_threadsafe(event_queue.put_nowait, {"type": "compile_error", "error": str(e)})
 
-    asyncio.create_task(_resume_task())
+    loop = asyncio.get_running_loop()
+    asyncio.create_task(asyncio.to_thread(_resume_sync_worker, loop))
 
     return {
         "compile_id": id,

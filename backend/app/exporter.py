@@ -52,7 +52,7 @@ async def run_skill(row_data: dict, headed: bool = True):
         context = await browser.new_context()
         page = await context.new_page()
 
-        print(f"Starting workflow on {{ spec.start_url }}...")
+        print("Starting workflow on {{ spec.start_url }}...")
         await page.goto("{{ spec.start_url }}")
         await page.wait_for_load_state("networkidle", timeout=2000)
 
@@ -61,9 +61,10 @@ async def run_skill(row_data: dict, headed: bool = True):
             val = step.get('value') or ''
             intent = step.get('intent', '')
 
-            # Interpolate variables: {{var_name}} -> row_data['var_name']
+            # Interpolate variables: {{ '{{' }}var_name{{ '}}' }} -> row_data['var_name']
             for var_key, var_val in row_data.items():
-                val = val.replace(f"{{{{{var_key}}}}}", str(var_val))
+                token = "{" + "{" + var_key + "}" + "}"
+                val = val.replace(token, str(var_val))
 
             print(f"Step {step['idx']}: {intent} ({action})")
 

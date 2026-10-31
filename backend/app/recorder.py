@@ -200,3 +200,4 @@ class PlaywrightRecorder:
         # Coalesce consecutive input keystrokes into final fill steps
         final_steps = coalesce_recorded_events(self.raw_events)
         return final_steps
+
