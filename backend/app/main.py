@@ -23,11 +23,11 @@ from pydantic import BaseModel
 from langgraph.types import Command
 
 from app.config import SHOTS_DIR, SPECS_DIR, DB_PATH, BACKEND_PORT
-from app.models import Step, Variable, WorkflowSpec, RowResult, StepResult, GemmaCallLog, CompileState
+from app.models import Step, Variable, WorkflowSpec, RowResult, StepResult, GemmaCallLog, CompileState, RunState
 from app.recorder import PlaywrightRecorder
 from app.runner import WorkflowRunner
 from app.call_logger import call_logger
-from app.graphs import build_compile_graph
+from app.graphs import build_compile_graph, build_run_graph
 from app.exporter import export_standalone_script
 from app.nodes.save import persist_run_results_to_sqlite
 
@@ -96,6 +96,10 @@ class RunStartRequest(BaseModel):
     spec_id: str
     rows: list[dict[str, Any]]
     headed: bool = False
+
+class RunApproveHealRequest(BaseModel):
+    approved: bool = True
+    override_choice: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -540,6 +544,27 @@ async def stream_run_events(request: Request, id: str):
             "X-Accel-Buffering": "no"
         }
     )
+
+
+@app.post("/api/run/{id}/approve_heal")
+async def approve_heal(id: str, req: RunApproveHealRequest):
+    """Approves and applies a proposed self-healing locator to resume execution."""
+    session = active_runs.get(id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Run session not found")
+
+    event_queue: asyncio.Queue = session["event_queue"]
+    await event_queue.put({
+        "type": "heal_approved",
+        "run_id": id,
+        "approved": req.approved,
+        "override_choice": req.override_choice
+    })
+
+    return {
+        "run_id": id,
+        "status": "heal_approved" if req.approved else "heal_rejected"
+    }
 
 
 @app.get("/api/runs")
