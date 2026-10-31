@@ -16,10 +16,14 @@ async function handleResponse<T>(res: Response, defaultError = 'Request failed')
   if (!res.ok) {
     let msg = defaultError;
     try {
-      const errJson = await res.json();
-      msg = errJson.detail || JSON.stringify(errJson);
+      const rawText = await res.text();
+      msg = rawText || defaultError;
+      const errJson = JSON.parse(rawText);
+      if (errJson && errJson.detail) {
+        msg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+      }
     } catch {
-      msg = (await res.text()) || defaultError;
+      // Use rawText or defaultError
     }
     throw new Error(msg);
   }
