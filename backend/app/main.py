@@ -255,8 +255,10 @@ def _run_compile_thread_worker(compile_id: str, graph: Any, config: dict, initia
                 event_queue.put_nowait,
                 {
                     "type": "interrupt",
+                    "interrupt_type": f"interrupt_{next_node}",
                     "node": next_node,
-                    "payload": interrupt_val
+                    "payload": interrupt_val,
+                    "spec": interrupt_val
                 }
             )
         else:

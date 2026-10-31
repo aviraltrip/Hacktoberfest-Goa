@@ -207,7 +207,8 @@ class GemmaClient:
                     model=model_id,
                     contents=current_contents,
                     config=types.GenerateContentConfig(
-                        temperature=temperature
+                        temperature=temperature,
+                        response_mime_type="application/json"
                     )
                 )
 

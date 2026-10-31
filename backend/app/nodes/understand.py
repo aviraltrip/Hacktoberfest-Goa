@@ -123,12 +123,13 @@ async def understand_single_step(
     )
 
     images: list[Path] = []
-    before_path = _resolve_image_path(step.shot_before)
     after_path = _resolve_image_path(step.shot_after)
-    if before_path:
-        images.append(before_path)
     if after_path:
         images.append(after_path)
+    elif step.shot_before:
+        before_path = _resolve_image_path(step.shot_before)
+        if before_path:
+            images.append(before_path)
 
     try:
         output: UnderstandStepOutput = await llm.generate_structured(
@@ -207,17 +208,31 @@ async def _async_understand_pipeline(state: CompileState) -> dict[str, Any]:
 
     processed_steps: list[Step] = []
     detected_variables: dict[str, Variable] = {}
-    prev_intent = ""
 
+    # Separate steps: immediately resolve static actions (goto, click without value)
+    steps_needing_analysis: list[Step] = []
     for s in raw_steps:
-        updated_step, var_obj = await understand_single_step(
-            step=s,
-            previous_intent=prev_intent
-        )
-        processed_steps.append(updated_step)
-        prev_intent = updated_step.intent
-        if var_obj and var_obj.name not in detected_variables:
-            detected_variables[var_obj.name] = var_obj
+        if s.action == "goto":
+            s.intent = f"Navigate to {s.value or 'target URL'}"
+            processed_steps.append(s)
+        elif s.action == "click":
+            if not s.intent:
+                target_desc = s.dom_context[:40] if s.dom_context else "element"
+                s.intent = f"Click {target_desc}"
+            processed_steps.append(s)
+        else:
+            steps_needing_analysis.append(s)
+            processed_steps.append(s)
+
+    # Concurrently analyze value/input steps (fill, select) to minimize latency
+    if steps_needing_analysis:
+        tasks = [understand_single_step(step=s) for s in steps_needing_analysis]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for res in results:
+            if isinstance(res, tuple) and len(res) == 2:
+                updated_s, var_obj = res
+                if var_obj and var_obj.name not in detected_variables:
+                    detected_variables[var_obj.name] = var_obj
 
     final_shot = processed_steps[-1].shot_after if processed_steps else None
     wf_output = await understand_workflow_synthesis(

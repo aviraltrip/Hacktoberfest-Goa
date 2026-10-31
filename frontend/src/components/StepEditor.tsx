@@ -82,25 +82,40 @@ export default function StepEditor({
       es.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === 'node_start') {
-            setCompileStatus(`LangGraph running node: ${data.node}...`);
-          } else if (data.type === 'interrupt_review_intents') {
+          const isInterrupt = 
+            data.type === 'interrupt' || 
+            data.type === 'interrupt_review_intents' || 
+            data.interrupt_type === 'interrupt_review_intents' ||
+            data.node === 'review_intents';
+
+          if (isInterrupt) {
             setReviewRequired(true);
+            setIsCompiling(false);
             setCompileStatus('Gemma 4 parameter proposal ready for your confirmation.');
-            if (data.spec?.variables) {
-              setDetectedVariables(data.spec.variables);
+            const payload = data.payload || data.spec || {};
+            if (payload.variables) {
+              setDetectedVariables(payload.variables);
             }
-            if (data.spec?.steps) {
-              setSteps(data.spec.steps);
+            if (payload.steps) {
+              setSteps(payload.steps);
+            }
+            if (payload.spec_name) {
+              setWorkflowName(payload.spec_name);
             }
             es.close();
-          } else if (data.type === 'compile_completed' || data.type === 'status') {
-            if (data.status === 'saved' && data.spec) {
-              setCompileStatus('Compilation & verification complete!');
-              setIsCompiling(false);
-              es.close();
+          } else if (data.type === 'node_update' || data.type === 'node_start') {
+            setCompileStatus(`LangGraph running node: ${data.node}...`);
+          } else if (data.type === 'compile_completed') {
+            setCompileStatus('Compilation & verification complete!');
+            setIsCompiling(false);
+            es.close();
+            if (data.spec) {
               onCompilationComplete(data.spec);
             }
+          } else if (data.type === 'compile_error') {
+            setError(data.error || 'Compilation failed');
+            setIsCompiling(false);
+            es.close();
           }
         } catch (e) {
           console.error('Error parsing compile event:', e);
