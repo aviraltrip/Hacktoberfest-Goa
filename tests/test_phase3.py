@@ -143,8 +143,7 @@ class TestPhase3LangGraph(unittest.TestCase):
     """Verifies LangGraph Compile Graph execution, interrupt, and resume."""
 
     def test_compile_graph_interrupt_and_resume(self):
-        checkpointer = MemorySaver()
-        graph = build_compile_graph(checkpointer=checkpointer)
+        graph = build_compile_graph()
         thread_config = {"configurable": {"thread_id": "test_thread_p3_stream"}}
 
         sample_steps = [

@@ -100,8 +100,7 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
         ]
 
         # 2. Build and run Compile Graph
-        checkpointer = MemorySaver()
-        compile_graph = build_compile_graph(checkpointer=checkpointer)
+        compile_graph = build_compile_graph()
         compile_thread = {"configurable": {"thread_id": "e2e_compile_thread"}}
 
         initial_compile_state = {
@@ -154,7 +153,7 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
 
         # 3. Simulate UI Mutation & Run Graph Self-Healing Loop
         # Target site updates to ?v=2: #submitBtn is missing, replaced by button.ui-footer-act-pill
-        run_graph = build_run_graph(checkpointer=MemorySaver())
+        run_graph = build_run_graph()
         run_thread = {"configurable": {"thread_id": "e2e_run_thread"}}
 
         # Execution failure on step 4

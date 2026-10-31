@@ -172,8 +172,7 @@ class TestPhase5RunGraph(unittest.TestCase):
     """Verifies the Run Graph self-healing feedback loop with LangGraph."""
 
     def test_run_graph_heal_loop_and_spec_patching(self):
-        checkpointer = MemorySaver()
-        graph = build_run_graph(checkpointer=checkpointer)
+        graph = build_run_graph()
         thread_config = {"configurable": {"thread_id": "test_run_graph_thread"}}
 
         # Broken spec where step 2 has an outdated selector
