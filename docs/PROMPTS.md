@@ -205,3 +205,4 @@ def extract_json_payload(raw_text: str) -> dict:
     return json.loads(raw_text)
 ```
 - If parsing fails, the node logs a warning and automatically issues a **one-time retry** with an explicit directive: `"Error parsing response. Return pure JSON only, no markdown."`
+

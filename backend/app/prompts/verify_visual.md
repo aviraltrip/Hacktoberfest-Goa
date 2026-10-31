@@ -17,3 +17,4 @@ Respond with strictly valid JSON only:
   "evidence": "Detailed description of what is seen on screen",
   "confidence": float
 }
+

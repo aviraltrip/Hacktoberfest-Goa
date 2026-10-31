@@ -165,3 +165,4 @@ flowchart LR
 - **Image Downscaling:** Raw 1080p screenshots (~1.8 MB) are resized to width 1024px JPEG quality 70 (~120 KB), slashing latency by >60%.
 - **SHA-256 Deduplication:** Repeated identical calls during trial runs or repairs are served from cache.
 - **Global Concurrency Throttling:** `asyncio.Semaphore(3)` avoids HTTP 429 quota exhaustion on free Gemini API tiers.
+

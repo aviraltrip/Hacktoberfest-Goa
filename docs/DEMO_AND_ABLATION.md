@@ -77,3 +77,4 @@ During the pitch, we project the **Ablation Comparison Slide**:
   - *"Candidate 3 is an icon button with a paper plane inside a footer action bar, representing submission."*
 - **Action:** Click **Approve Heal** (or show auto-approve). The spec is dynamically patched, the row completes, and the green success banner is verified.
 - **Close:** "Record once, run for everyone, and it heals itself with Gemma 4."
+

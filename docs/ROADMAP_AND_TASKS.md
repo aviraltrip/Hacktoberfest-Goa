@@ -86,3 +86,4 @@ If time runs short, features must be cut in strict order without compromising th
    - `nodes/repair.py` with Set-of-Marks (The core winning feature).
    - `nodes/verify.py` visual inspection.
    - Gemma Call Inspector drawer (Proves Gemma 4 does real work to judges).
+

@@ -28,3 +28,4 @@ Respond with strictly valid JSON only. Do not include markdown commentary or cod
   "field_type": "text" | "select" | "date" | "number" | null,
   "confidence": float
 }
+

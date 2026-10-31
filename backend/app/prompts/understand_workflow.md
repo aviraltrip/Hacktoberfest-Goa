@@ -32,3 +32,4 @@ Respond with strictly valid JSON only:
     "visual": "string"
   }
 }
+

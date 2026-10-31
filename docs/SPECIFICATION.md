@@ -264,3 +264,4 @@ CREATE VIRTUAL TABLE IF NOT EXISTS heals_fts USING fts5(
     content_rowid='id'
 );
 ```
+

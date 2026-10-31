@@ -33,3 +33,4 @@ Respond with strictly valid JSON only:
   "confidence": float,
   "reason": "Clear explanation citing visual position, icon shape, or contextual clues."
 }
+
