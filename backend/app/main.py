@@ -549,6 +549,15 @@ async def list_runs():
     if DB_PATH.exists():
         try:
             with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS runs (
+                        id TEXT PRIMARY KEY,
+                        spec_id TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        results_json TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
                 conn.row_factory = sqlite3.Row
                 cursor = conn.execute("SELECT id, spec_id, status, results_json, created_at FROM runs ORDER BY created_at DESC")
                 for row in cursor.fetchall():

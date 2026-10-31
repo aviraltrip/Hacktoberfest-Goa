@@ -27,6 +27,10 @@ def trial_run_node(state: CompileState) -> dict[str, Any]:
     LangGraph Compile Graph node: 'trial_run'.
     Executes the spec across trial_rows.
     """
+    # If trial results are already supplied (e.g. mock or pre-evaluated), pass through
+    if state.get("results"):
+        return {"results": state["results"], "status": "testing"}
+
     spec: WorkflowSpec = state.get("spec")
     trial_rows: list[dict[str, Any]] = state.get("trial_rows") or []
     rec_id = state.get("recording_id", "draft")

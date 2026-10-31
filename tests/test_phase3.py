@@ -25,6 +25,7 @@ from app.models import (
     Variable,
     SuccessCondition,
     WorkflowSpec,
+    RowResult,
     UnderstandStepOutput,
     UnderstandWorkflowOutput
 )
@@ -163,6 +164,7 @@ class TestPhase3LangGraph(unittest.TestCase):
             "raw_steps": sample_steps,
             "intents_approved": False,
             "repairs_count": 0,
+            "results": [RowResult(row_idx=1, row_data={}, steps=[], success=True)],
             "status": "understanding"
         }
 
