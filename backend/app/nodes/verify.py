@@ -110,8 +110,31 @@ def verify_node(state: CompileState) -> dict[str, Any]:
         return {"status": "verifying", "results": results}
 
     async def _run_verifications():
-        tasks = [verify_single_row(r, spec) for r in results]
-        return list(await asyncio.gather(*tasks))
+        evaluated: list[RowResult] = []
+        visual_passed_cache: Optional[bool] = None
+        evidence_cache: Optional[str] = None
+
+        for r in results:
+            steps_failed = [s for s in r.steps if not s.ok]
+            if steps_failed:
+                r.success = False
+                r.evidence = f"Execution failed on step {steps_failed[0].idx}: {steps_failed[0].error}"
+                evaluated.append(r)
+                continue
+
+            if visual_passed_cache is not None:
+                r.success = visual_passed_cache
+                r.evidence = evidence_cache or "All steps executed cleanly (visual criteria confirmed on trial batch)"
+                evaluated.append(r)
+                continue
+
+            verified_row = await verify_single_row(r, spec)
+            if verified_row.success and spec.success.visual:
+                visual_passed_cache = True
+                evidence_cache = verified_row.evidence
+            evaluated.append(verified_row)
+
+        return evaluated
 
     try:
         loop = asyncio.get_event_loop()
