@@ -177,13 +177,13 @@
     <p class="subtitle">Annual Merit & Need-Based Grant Application 2026</p>
 
     <form id="scholarshipForm" onsubmit="handleFormSubmit(event)">
-      <!-- Name Field -->
+      
       <div class="form-group" id="groupFullName">
         <label id="lblFullName" for="fullName">Full name</label>
         <input type="text" id="fullName" name="fullName" placeholder="e.g. Maya Deshmukh" required autocomplete="off">
       </div>
 
-      <!-- Department Field -->
+      
       <div class="form-group" id="groupDept">
         <label id="lblDept" for="department">Department</label>
         <select id="department" name="department" required>
@@ -196,7 +196,7 @@
         </select>
       </div>
 
-      <!-- Graduation Year Field -->
+      
       <div class="form-group" id="groupYear">
         <label id="lblYear" for="gradYear">Graduation Year</label>
         <select id="gradYear" name="gradYear" required>
@@ -208,13 +208,13 @@
         </select>
       </div>
 
-      <!-- Statement of Purpose Field -->
+      
       <div class="form-group" id="groupSop">
         <label id="lblSop" for="sop">Statement of Purpose</label>
         <textarea id="sop" name="sop" placeholder="Briefly describe your academic ambitions..."></textarea>
       </div>
 
-      <!-- Container for V1 in-form submit button -->
+      
       <div id="inFormSubmitContainer">
         <button type="submit" id="submitBtn" class="btn-primary" aria-label="Submit application">
           <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -223,13 +223,13 @@
       </div>
     </form>
 
-    <!-- Confirmation Banner -->
+    
     <div id="confirmationBanner" class="alert-success">
       Application received, ref #GA-8921
     </div>
   </div>
 
-  <!-- Container for V2 footer dock -->
+  
   <div id="footerDockContainer" style="display: none;"></div>
 
   <script>

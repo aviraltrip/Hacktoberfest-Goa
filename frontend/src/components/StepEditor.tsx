@@ -113,7 +113,7 @@ export default function StepEditor({
       const res = await startCompilation(recordingId);
       setCompileId(res.compile_id);
 
-      // 1. Listen for compilation SSE events
+      
       es = new EventSource(`/api/compile/${res.compile_id}/events`);
       
       const handleData = (dataStr: string) => {
@@ -149,10 +149,10 @@ export default function StepEditor({
       es.addEventListener('node_update', (e: any) => handleData(e.data));
 
       es.onerror = () => {
-        // SSE error or reconnection, poll timer handles fallback
+        
       };
 
-      // 2. Fallback Active Polling every 1.2s to guarantee no UI hang
+      
       pollTimer = setInterval(async () => {
         try {
           const statusRes = await getCompilation(res.compile_id);
@@ -166,7 +166,7 @@ export default function StepEditor({
             setIsCompiling(false);
           }
         } catch (err) {
-          // Ignore polling errors
+          
         }
       }, 1200);
 
@@ -200,7 +200,7 @@ export default function StepEditor({
         steps: steps
       });
 
-      // 1. SSE listener
+      
       es = new EventSource(`/api/compile/${compileId}/events`);
       
       const handleData = (dataStr: string) => {
@@ -226,7 +226,7 @@ export default function StepEditor({
       es.addEventListener('compile_completed', (e: any) => handleData(e.data));
       es.addEventListener('compile_error', (e: any) => handleData(e.data));
 
-      // 2. Active Polling fallback
+      
       pollTimer = setInterval(async () => {
         try {
           const statusRes = await getCompilation(compileId);
@@ -242,7 +242,7 @@ export default function StepEditor({
             setIsCompiling(false);
           }
         } catch (err) {
-          // Ignore polling errors
+          
         }
       }, 1200);
 
@@ -255,7 +255,7 @@ export default function StepEditor({
 
   return (
     <div className="space-y-6">
-      {/* Header bar */}
+      
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex-1 space-y-1">
@@ -316,7 +316,7 @@ export default function StepEditor({
         )}
       </div>
 
-      {/* Step by Step Editor List */}
+      
       <div className="space-y-4">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
@@ -351,7 +351,7 @@ export default function StepEditor({
                   </div>
                 </div>
 
-                {/* Variable toggle switch */}
+                
                 {step.action !== 'goto' && (
                   <button
                     onClick={() => handleToggleVariable(step.idx)}
@@ -367,7 +367,7 @@ export default function StepEditor({
                 )}
               </div>
 
-              {/* Semantic Intent Field */}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -383,7 +383,7 @@ export default function StepEditor({
                   />
                 </div>
 
-                {/* Value or Parameter Name Field */}
+                
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     {isVar ? 'Parameter Variable Name' : 'Literal Step Value'}
@@ -416,7 +416,7 @@ export default function StepEditor({
                 </div>
               </div>
 
-              {/* Before/After Screenshot Previews */}
+              
               <div className="pt-2 flex items-center gap-3">
                 {step.shot_before && (
                   <button
@@ -442,7 +442,7 @@ export default function StepEditor({
         })}
       </div>
 
-      {/* Snapshot Preview Modal */}
+      
       {selectedShot && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setSelectedShot(null)}>
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-4 max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>

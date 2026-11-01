@@ -116,12 +116,12 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
               return [...existing, data.result].sort((a, b) => a.row_idx - b.row_idx);
             });
           } else if (data.type === 'heal_required' || data.type === 'heal_proposal') {
-            // Trigger Set-of-Marks heal review modal
+            
             if (data.proposal) {
               onHealTriggered(res.run_id, data.proposal);
             }
           } else if (data.type === 'heal_approved') {
-            // Resumed after heal approval
+            
             console.log('Heal approved and spec patched. Resuming rows...');
           } else if (data.type === 'run_completed' || data.status === 'completed') {
             setIsRunning(false);
@@ -146,7 +146,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
 
   return (
     <div className="space-y-6">
-      {/* Run Configuration Bar */}
+      
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-2 flex-1">
@@ -222,7 +222,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
         )}
       </div>
 
-      {/* Input Data Rows Editor */}
+      
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -309,7 +309,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
         </div>
       </div>
 
-      {/* Execution Results Matrix */}
+      
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -359,7 +359,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
                       </div>
                     </td>
 
-                    {/* Step Status Badges */}
+                    
                     {activeSpec?.steps.map(step => {
                       const stepRes = rowResult?.steps?.find(s => s.idx === step.idx);
                       const isCurrentStep = isCurrentRow && currentStepIdx?.stepIdx === step.idx;
@@ -392,7 +392,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
                       );
                     })}
 
-                    {/* Outcome Badge */}
+                    
                     <td className="py-3 px-3 text-center">
                       {rowResult ? (
                         rowResult.success ? (
@@ -413,7 +413,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
                       )}
                     </td>
 
-                    {/* Visual Evidence Snapshot */}
+                    
                     <td className="py-3 px-3 text-right">
                       {rowResult?.evidence ? (
                         <button
@@ -435,7 +435,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
         </div>
       </div>
 
-      {/* Snapshot Preview Modal */}
+      
       {previewShot && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setPreviewShot(null)}>
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>

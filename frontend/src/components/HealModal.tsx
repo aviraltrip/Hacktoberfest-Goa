@@ -62,7 +62,7 @@ export default function HealModal({
         className="bg-slate-900 border border-slate-700 rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Banner */}
+        
         <div className="px-6 py-4 bg-gradient-to-r from-amber-950/60 via-slate-900 to-indigo-950/60 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-amber-500/20 border border-amber-500/30 text-amber-400">
@@ -92,11 +92,11 @@ export default function HealModal({
           </button>
         </div>
 
-        {/* Modal Body */}
+        
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Side-by-Side Visual Comparison */}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Original Snapshot */}
+            
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 <span>Original Recorded State</span>
@@ -118,7 +118,7 @@ export default function HealModal({
               </div>
             </div>
 
-            {/* Set-of-Marks Snapshot */}
+            
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-indigo-300 uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
@@ -144,7 +144,7 @@ export default function HealModal({
             </div>
           </div>
 
-          {/* Gemma 4 Explanation Card */}
+          
           <div className="p-5 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-indigo-300 font-bold text-sm">
@@ -170,7 +170,7 @@ export default function HealModal({
             )}
           </div>
 
-          {/* Choice Selector if user wants to override */}
+          
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Confirm or Override Candidate Choice
@@ -205,7 +205,7 @@ export default function HealModal({
           )}
         </div>
 
-        {/* Footer Actions */}
+        
         <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
           <button
             onClick={handleReject}

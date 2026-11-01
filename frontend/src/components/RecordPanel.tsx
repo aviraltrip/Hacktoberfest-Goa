@@ -54,7 +54,7 @@ export default function RecordPanel({ onRecordingComplete, onSelectStepToView }:
       setRecordingId(res.recording_id);
       setIsRecording(true);
 
-      // Connect to SSE stream
+      
       const es = new EventSource(`/api/record/events?id=${res.recording_id}`);
       es.onmessage = (event) => {
         try {
@@ -109,7 +109,7 @@ export default function RecordPanel({ onRecordingComplete, onSelectStepToView }:
 
   return (
     <div className="space-y-6">
-      {/* Top Controls Card */}
+      
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex-1 space-y-2">
@@ -205,7 +205,7 @@ export default function RecordPanel({ onRecordingComplete, onSelectStepToView }:
         )}
       </div>
 
-      {/* Recording Steps Feed */}
+      
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -276,7 +276,7 @@ export default function RecordPanel({ onRecordingComplete, onSelectStepToView }:
                     </div>
                   </div>
 
-                  {/* Thumbnail Previews */}
+                  
                   <div className="flex items-center gap-2 shrink-0">
                     {step.shot_before && (
                       <div className="relative group/thumb cursor-pointer">

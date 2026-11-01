@@ -35,7 +35,7 @@ export default function AblationView() {
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
+      
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -62,7 +62,7 @@ export default function AblationView() {
           </button>
         </div>
 
-        {/* Top Metric Cards */}
+        
         {data?.summary && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
@@ -101,7 +101,7 @@ export default function AblationView() {
         )}
       </div>
 
-      {/* Mutation Benchmark Matrix */}
+      
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">
           Mutation Resilience Test Matrix
@@ -158,7 +158,7 @@ export default function AblationView() {
           </table>
         </div>
 
-        {/* Pitch Callout Box */}
+        
         <div className="mt-6 p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/20 text-xs text-indigo-300 flex items-start gap-3">
           <Sparkles className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
           <div className="space-y-1">

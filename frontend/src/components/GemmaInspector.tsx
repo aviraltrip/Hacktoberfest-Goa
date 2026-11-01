@@ -60,7 +60,7 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
         className="w-full max-w-2xl bg-slate-900 border-l border-slate-800 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        
         <div className="p-5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
@@ -97,7 +97,7 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
           </div>
         </div>
 
-        {/* Stats Strip */}
+        
         <div className="grid grid-cols-3 divide-x divide-slate-800 border-b border-slate-800 bg-slate-900/50 py-3 text-center text-xs">
           <div>
             <div className="text-slate-400">Total Gemma Calls</div>
@@ -113,7 +113,7 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
           </div>
         </div>
 
-        {/* Calls Log List */}
+        
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {calls.length === 0 ? (
             <div className="p-8 text-center border border-dashed border-slate-800 rounded-2xl">
@@ -163,7 +163,7 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
 
                   {isExpanded && (
                     <div className="p-4 border-t border-slate-800/80 bg-slate-900/60 space-y-3 text-xs">
-                      {/* Prompt Summary */}
+                      
                       <div>
                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                           Prompt Summary
@@ -173,7 +173,7 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
                         </p>
                       </div>
 
-                      {/* Image Thumbnails if multimodal */}
+                      
                       {call.image_paths && call.image_paths.length > 0 && (
                         <div>
                           <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
@@ -193,7 +193,7 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
                         </div>
                       )}
 
-                      {/* Raw Response JSON */}
+                      
                       <div>
                         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                           Model Output (Validated JSON)
