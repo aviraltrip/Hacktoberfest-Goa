@@ -31,7 +31,6 @@ def launch_all():
     processes = []
 
     try:
-        # 1. Demo Application Server (port 8080)
         demo_dir = ROOT_DIR / "demo_app"
         print("[1/3] Starting Demo App on http://localhost:8080 ...")
         env_utf8 = {**os.environ, "PYTHONIOENCODING": "utf-8"}
@@ -42,7 +41,6 @@ def launch_all():
         )
         processes.append(("Demo App (8080)", p_demo))
 
-        # 2. FastAPI Backend Server (port 8000)
         print("[2/3] Starting FastAPI Backend on http://localhost:8000 ...")
         backend_dir = ROOT_DIR / "backend"
         p_backend = subprocess.Popen(
@@ -52,7 +50,6 @@ def launch_all():
         )
         processes.append(("FastAPI Backend (8000)", p_backend))
 
-        # 3. Vite + React Frontend (port 5173)
         print("[3/3] Starting Vite Frontend Console on http://localhost:5173 ...")
         frontend_dir = ROOT_DIR / "frontend"
         npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
@@ -70,7 +67,6 @@ def launch_all():
         print("=" * 70)
         print("Press Ctrl+C to terminate all services.\n")
 
-        # Keep parent alive until interrupted
         while True:
             time.sleep(1)
 

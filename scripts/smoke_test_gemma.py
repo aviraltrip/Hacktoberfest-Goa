@@ -21,7 +21,6 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-# Load environment variables
 load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -32,7 +31,6 @@ def create_synthetic_test_image() -> bytes:
     """Generates a simple 400x200 JPEG image with a blue button labeled 'Submit Application'."""
     img = Image.new("RGB", (400, 200), color=(245, 247, 250))
     draw = ImageDraw.Draw(img)
-    # Draw blue button box
     draw.rectangle([50, 70, 350, 130], fill=(30, 64, 175))
     draw.text((120, 92), "Submit Application", fill=(255, 255, 255))
     
@@ -91,7 +89,6 @@ def run_smoke_test():
         print(f"✅ Response received in {latency:.1f}ms")
         print(f"Raw Output Preview:\n{raw_text[:200]}...")
 
-        # Parse JSON
         import re
         clean_json = raw_text
         fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
