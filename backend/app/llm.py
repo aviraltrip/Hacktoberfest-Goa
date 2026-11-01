@@ -45,7 +45,6 @@ def extract_json_payload(raw_text: str) -> dict[str, Any]:
     """
     cleaned = raw_text.strip()
 
-    # 1. Direct parse attempt
     try:
         data = json.loads(cleaned)
         if isinstance(data, dict):
@@ -53,7 +52,6 @@ def extract_json_payload(raw_text: str) -> dict[str, Any]:
     except Exception:
         pass
 
-    # 2. Markdown code fences regex
     fence_pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
     match = re.search(fence_pattern, cleaned, re.DOTALL)
     if match:
@@ -64,7 +62,6 @@ def extract_json_payload(raw_text: str) -> dict[str, Any]:
         except Exception:
             pass
 
-    # 3. Find outermost matching braces
     start_idx = cleaned.find("{")
     end_idx = cleaned.rfind("}")
     if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
@@ -126,7 +123,6 @@ class GemmaClient:
         model_id = model or GEMMA_MODEL
         img_inputs = images or []
 
-        # Process and downscale images to JPEG quality 70 / max-width 1024px
         processed_images: list[bytes] = []
         image_hashes: list[str] = []
         for img in img_inputs:
@@ -134,11 +130,9 @@ class GemmaClient:
             processed_images.append(jpeg_bytes)
             image_hashes.append(compute_image_hash(jpeg_bytes))
 
-        # Check Cache
         cache_key = llm_cache.compute_key(prompt, image_hashes, model_id)
         if use_cache and llm_cache.has(cache_key):
             cached_data = llm_cache.get(cache_key)
-            # Reconstruct model from cached parsed_json
             call_logger.log(
                 endpoint=endpoint,
                 model=model_id,
@@ -151,7 +145,6 @@ class GemmaClient:
             )
             return schema_class.model_validate(cached_data.get("parsed"))
 
-        # Acquire concurrency semaphore
         async with self.semaphore:
             return await self._execute_with_retry(
                 prompt=prompt,
@@ -180,7 +173,6 @@ class GemmaClient:
 
         client = self._get_genai_client()
 
-        # Build contents array (images first, then prompt text)
         contents: list[Any] = []
         for img_bytes in processed_images:
             contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"))
@@ -193,7 +185,6 @@ class GemmaClient:
         for attempt in range(2):
             t0 = time.time()
             try:
-                # If retry attempt, append correction instruction to contents
                 current_contents = list(contents)
                 if attempt == 1 and last_error:
                     current_contents.append(
@@ -201,7 +192,6 @@ class GemmaClient:
                         f"Return ONLY strictly valid JSON conforming to the requested schema. Do not include markdown fences."
                     )
 
-                # Execute synchronous SDK call in thread pool to avoid blocking async event loop
                 response = await asyncio.to_thread(
                     client.models.generate_content,
                     model=model_id,
@@ -215,13 +205,10 @@ class GemmaClient:
                 latency_ms = (time.time() - t0) * 1000
                 raw_text = (response.text or "").strip()
 
-                # Parse JSON
                 parsed_dict = extract_json_payload(raw_text)
 
-                # Validate with Pydantic
                 validated_obj = schema_class.model_validate(parsed_dict)
 
-                # Cache and Log success
                 llm_cache.set(cache_key, {"raw_text": raw_text, "parsed": parsed_dict})
                 call_logger.log(
                     endpoint=endpoint,
@@ -240,10 +227,8 @@ class GemmaClient:
                 latency_ms = (time.time() - t0) * 1000
                 last_error = str(e)
                 if attempt == 0:
-                    # Will retry once
                     continue
 
-                # Final failure after retry
                 call_logger.log(
                     endpoint=endpoint,
                     model=model_id,
@@ -260,7 +245,6 @@ class GemmaClient:
                 ) from e
 
             except Exception as e:
-                # API / Network / HTTP 429 error
                 latency_ms = (time.time() - t0) * 1000
                 call_logger.log(
                     endpoint=endpoint,
@@ -275,6 +259,5 @@ class GemmaClient:
                 raise
 
 
-# Global singleton client instance
 gemma_client = GemmaClient()
 

@@ -16,7 +16,6 @@ from app.imaging import resize_and_compress_image, save_screenshot_bytes
 from app.models import CandidateElement
 
 
-# JavaScript function injected into live page to extract visible interactive elements
 EXTRACT_CANDIDATES_JS = """
 (() => {
   const elements = [];
@@ -67,7 +66,6 @@ EXTRACT_CANDIDATES_JS = """
 """
 
 
-# JavaScript injected to overlay numbered Set-of-Marks badges over candidate bounding boxes
 INJECT_SOM_JS = """
 (candidates) => {
   // Remove any preexisting overlay
@@ -188,10 +186,8 @@ def rank_candidates_bm25(
     if not candidates:
         return []
 
-    # Tokenize query
     query_tokens = [t.lower() for t in re.findall(r"\w+", query_text) if len(t) > 1]
 
-    # Tokenize corpus documents
     corpus_tokens = []
     for c in candidates:
         doc = f"{c.tag} {c.role or ''} {c.text or ''} {c.aria_label or ''} {' '.join(c.classes)} {c.id_attr or ''} {c.placeholder or ''}"
@@ -236,17 +232,14 @@ async def capture_set_of_marks_screenshot(
     """
     cand_dicts = [c.model_dump() for c in candidates]
     try:
-        # 1. Inject overlay
         await page.evaluate(INJECT_SOM_JS, cand_dicts)
 
-        # 2. Capture screenshot with overlay
         raw_png = await page.screenshot(type="png", full_page=False)
         compressed_jpeg = resize_and_compress_image(raw_png)
 
         filename = f"heal_{run_id}_step_{step_idx}_marked.jpg"
         save_screenshot_bytes(compressed_jpeg, filename)
 
-        # 3. Clean up overlay
         await page.evaluate(CLEAR_SOM_JS)
 
         return f"/static/shots/{filename}"

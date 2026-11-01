@@ -17,7 +17,6 @@ def _clean_fts_query(text: str) -> str:
     tokens = re.findall(r"\w+", text)
     if not tokens:
         return ""
-    # Filter short stop words
     significant = [t for t in tokens if len(t) > 2]
     return " OR ".join(significant[:8]) if significant else " OR ".join(tokens[:5])
 
@@ -44,7 +43,6 @@ class HealMemory:
                 )
             """)
 
-            # Create FTS5 virtual table if supported
             try:
                 conn.execute("""
                     CREATE VIRTUAL TABLE IF NOT EXISTS heals_fts USING fts5(
@@ -53,7 +51,6 @@ class HealMemory:
                         content_rowid='id'
                     )
                 """)
-                # Synchronization triggers
                 conn.execute("""
                     CREATE TRIGGER IF NOT EXISTS heals_ai AFTER INSERT ON heals BEGIN
                         INSERT INTO heals_fts(rowid, intent) VALUES (new.id, new.intent);
@@ -105,7 +102,6 @@ class HealMemory:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
 
-                # 1. Try FTS5 search
                 if fts_query:
                     try:
                         cursor = conn.execute(
@@ -127,7 +123,6 @@ class HealMemory:
                     except Exception:
                         pass
 
-                # 2. Fallback to LIKE query if no FTS matches
                 if not hints:
                     words = [w for w in intent.split() if len(w) > 3]
                     if words:
@@ -192,5 +187,4 @@ class HealMemory:
             conn.commit()
 
 
-# Global singleton instance
 heal_memory = HealMemory()
