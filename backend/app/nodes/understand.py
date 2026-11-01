@@ -207,30 +207,16 @@ async def _async_understand_pipeline(state: CompileState) -> dict[str, Any]:
         return {"status": "failed", "error": "No raw steps available for understanding"}
 
     processed_steps: list[Step] = []
-    detected_variables: dict[str, Variable] = {}
-
-    steps_needing_analysis: list[Step] = []
     for s in raw_steps:
         if s.action == "goto":
             s.intent = f"Navigate to {s.value or 'target URL'}"
-            processed_steps.append(s)
         elif s.action == "click":
             if not s.intent:
                 target_desc = s.dom_context[:40] if s.dom_context else "element"
                 s.intent = f"Click {target_desc}"
-            processed_steps.append(s)
-        else:
-            steps_needing_analysis.append(s)
-            processed_steps.append(s)
-
-    if steps_needing_analysis:
-        tasks = [understand_single_step(step=s) for s in steps_needing_analysis]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        for res in results:
-            if isinstance(res, tuple) and len(res) == 2:
-                updated_s, var_obj = res
-                if var_obj and var_obj.name not in detected_variables:
-                    detected_variables[var_obj.name] = var_obj
+        elif not s.intent:
+            s.intent = f"{s.action.capitalize()} {s.value or ''}".strip()
+        processed_steps.append(s)
 
     final_shot = processed_steps[-1].shot_after if processed_steps else None
     wf_output = await understand_workflow_synthesis(
@@ -238,20 +224,30 @@ async def _async_understand_pipeline(state: CompileState) -> dict[str, Any]:
         final_shot=final_shot
     )
 
-    merged_variables: list[Variable] = list(detected_variables.values())
-    for v in wf_output.variables:
-        if v.name not in detected_variables:
-            merged_variables.append(v)
-        else:
-            if v.options and not detected_variables[v.name].options:
-                detected_variables[v.name].options = v.options
+    detected_variables: dict[str, Variable] = {v.name: v for v in wf_output.variables}
+
+    for s in processed_steps:
+        if s.action in ("fill", "select") and s.value:
+            matched = False
+            for v in wf_output.variables:
+                if v.example and (v.example.strip().lower() == s.value.strip().lower() or s.value.strip().lower() in v.example.strip().lower()):
+                    s.intent = f"Enter {v.name.replace('_', ' ')}"
+                    s.value = f"{{{{{v.name}}}}}"
+                    matched = True
+                    break
+            if not matched:
+                for v in wf_output.variables:
+                    if v.name.lower() in (s.dom_context or "").lower():
+                        s.intent = f"Enter {v.name.replace('_', ' ')}"
+                        s.value = f"{{{{{v.name}}}}}"
+                        break
 
     start_url = processed_steps[0].value if processed_steps and processed_steps[0].action == "goto" else "http://localhost:8080"
     spec = WorkflowSpec(
         id=f"spec_{state.get('recording_id', 'draft')}",
         name=wf_output.name or "Web Automation Workflow",
         start_url=start_url or "http://localhost:8080",
-        variables=merged_variables,
+        variables=list(detected_variables.values()),
         steps=processed_steps,
         success=wf_output.success
     )
