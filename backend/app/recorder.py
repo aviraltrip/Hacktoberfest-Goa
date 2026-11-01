@@ -46,7 +46,7 @@ class PlaywrightRecorder:
         self._context: Optional[BrowserContext] = None
         self._page: Optional[Page] = None
         self._step_counter = 0
-        self._lock = threading.Lock()
+        self._async_lock: Optional[asyncio.Lock] = None
 
     def subscribe(self) -> asyncio.Queue:
         """Subscribes an async queue to receive real-time step notifications."""
@@ -89,7 +89,7 @@ class PlaywrightRecorder:
         if not self._page or self._page.is_closed():
             return ""
         try:
-            raw_png = await self._page.screenshot(type="png", full_page=False)
+            raw_png = await self._page.screenshot(type="png", full_page=False, timeout=3000)
             compressed_jpeg = resize_and_compress_image(raw_png)
             filename = f"{self.recording_id}_step_{self._step_counter}_{suffix}.jpg"
             saved_path = save_screenshot_bytes(compressed_jpeg, filename)
@@ -100,7 +100,10 @@ class PlaywrightRecorder:
 
     async def _handle_dom_event(self, source, event_data: dict[str, Any]):
         """Handler invoked when injected JavaScript dispatches window.__record."""
-        with self._lock:
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
+
+        async with self._async_lock:
             if not self.is_active:
                 return
 
