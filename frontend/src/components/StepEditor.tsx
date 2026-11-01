@@ -31,7 +31,23 @@ export default function StepEditor({
   const [workflowName, setWorkflowName] = useState('Scholarship Application Skill');
   const [steps, setSteps] = useState<Step[]>(initialSteps);
   const [isCompiling, setIsCompiling] = useState(false);
+  const [compileElapsed, setCompileElapsed] = useState(0);
   const [compileStatus, setCompileStatus] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    let timer: any = null;
+    if (isCompiling) {
+      setCompileElapsed(0);
+      timer = setInterval(() => {
+        setCompileElapsed(prev => prev + 1);
+      }, 1000);
+    } else {
+      setCompileElapsed(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isCompiling]);
   const [compileId, setCompileId] = useState<string | null>(null);
   const [reviewRequired, setReviewRequired] = useState(false);
   const [detectedVariables, setDetectedVariables] = useState<Variable[]>([]);
@@ -285,8 +301,8 @@ export default function StepEditor({
                 disabled={isCompiling}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
               >
-                <Sparkles className="w-4 h-4 text-indigo-300 animate-spin" />
-                {isCompiling ? 'Gemma Analyzing...' : 'Compile Skill with Gemma 4'}
+                <Sparkles className={`w-4 h-4 text-indigo-300 ${isCompiling ? 'animate-spin' : ''}`} />
+                {isCompiling ? `Gemma Analyzing... (${compileElapsed}s)` : 'Compile Skill with Gemma 4'}
               </button>
             ) : (
               <button
@@ -294,8 +310,8 @@ export default function StepEditor({
                 disabled={isCompiling}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 transition disabled:opacity-50"
               >
-                <Check className="w-4 h-4" />
-                Approve & Execute Trial
+                <Check className={`w-4 h-4 ${isCompiling ? 'animate-spin' : ''}`} />
+                {isCompiling ? `Verifying... (${compileElapsed}s)` : 'Approve & Execute Trial'}
               </button>
             )}
           </div>
@@ -303,8 +319,8 @@ export default function StepEditor({
 
         {compileStatus && (
           <div className="mt-4 p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-indigo-300 text-xs flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
-            <span>{compileStatus}</span>
+            <Sparkles className={`w-4 h-4 text-indigo-400 shrink-0 ${isCompiling ? 'animate-spin' : ''}`} />
+            <span>{compileStatus} {isCompiling ? `(${compileElapsed}s)` : ''}</span>
           </div>
         )}
 
