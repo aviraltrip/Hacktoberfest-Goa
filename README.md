@@ -35,7 +35,7 @@ Without Gemma 4, modern dynamic web automation is impossible:
 ---
 
 
-## 🛠️ System Architecture
+## System Architecture
 
 ```mermaid
 flowchart LR
