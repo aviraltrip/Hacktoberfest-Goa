@@ -58,11 +58,9 @@ def save_node(state: CompileState) -> dict[str, Any]:
     rec_id = state.get("recording_id", "run")
 
     if spec:
-        # Save spec to specs/{id}.json and SQLite specs table
         save_spec_to_file(spec)
         persist_spec_to_sqlite(spec)
 
-        # Save run results to SQLite runs table
         run_status = "passed" if all(r.success for r in results) else "failed"
         persist_run_results_to_sqlite(
             run_id=f"run_trial_{rec_id}",

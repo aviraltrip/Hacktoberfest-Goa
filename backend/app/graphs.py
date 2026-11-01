@@ -47,9 +47,6 @@ def create_memory_saver() -> MemorySaver:
         return MemorySaver()
 
 
-# ---------------------------------------------------------------------------
-# Compile Graph Routing & Construction
-# ---------------------------------------------------------------------------
 
 def route_after_verify(state: CompileState) -> str:
     """Conditional edge routing for compile graph."""
@@ -89,9 +86,6 @@ def build_compile_graph(checkpointer: Optional[Any] = None):
     return builder.compile(checkpointer=chk)
 
 
-# ---------------------------------------------------------------------------
-# Run Graph Nodes & Construction (Phase 5)
-# ---------------------------------------------------------------------------
 
 def load_spec_node(state: RunState) -> dict[str, Any]:
     """Loads WorkflowSpec by spec_id if not present."""
@@ -123,7 +117,6 @@ def run_rows_node(state: RunState) -> dict[str, Any]:
     if not spec:
         return {"status": "failed", "error": "No spec loaded"}
 
-    # If results already present (e.g. test harness mock or successful rerun), inspect
     if state.get("results"):
         results = state["results"]
     else:
@@ -142,7 +135,6 @@ def run_rows_node(state: RunState) -> dict[str, Any]:
         except Exception:
             results = asyncio.run(_exec())
 
-    # Detect any failed step
     for row_res in results:
         failed_steps = [s for s in row_res.steps if not s.ok]
         if failed_steps:
@@ -236,7 +228,6 @@ def patch_spec_node(state: RunState) -> dict[str, Any]:
         if target_step:
             target_step.locators.insert(0, proposal.proposed_locator)
 
-    # Retain results if already supplied by resume or state
     curr_results = state.get("results") or []
     retained_results = curr_results if curr_results and all(r.success for r in curr_results) else []
 
@@ -282,6 +273,5 @@ def build_run_graph(checkpointer: Optional[Any] = None):
     return builder.compile(checkpointer=chk)
 
 
-# Global graph instances
 compile_graph = build_compile_graph()
 run_graph = build_run_graph()

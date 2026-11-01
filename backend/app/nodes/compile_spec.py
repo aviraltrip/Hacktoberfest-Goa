@@ -27,7 +27,6 @@ def generate_trial_rows(variables: list[Variable]) -> list[dict[str, Any]]:
 
     for var in variables:
         if var.type == "select" and var.options:
-            # Use 1st option for row 1, 2nd option for row 2 (if available)
             row1[var.name] = var.options[0]
             row2[var.name] = var.options[1] if len(var.options) > 1 else var.options[0]
         elif var.type == "number":
@@ -35,7 +34,6 @@ def generate_trial_rows(variables: list[Variable]) -> list[dict[str, Any]]:
             row1[var.name] = base
             row2[var.name] = base + 1
         else:
-            # Text fields
             row1[var.name] = var.example or "Alice Smith"
             row2[var.name] = f"Test {var.example or 'Bob Jones'}"
 
@@ -89,15 +87,12 @@ def compile_spec_node(state: CompileState) -> dict[str, Any]:
     if not spec:
         return {"status": "failed", "error": "No draft spec provided to compile"}
 
-    # Assign persistent ID if not present
     if not spec.id or spec.id.startswith("spec_draft"):
         spec.id = f"spec_{uuid.uuid4().hex[:8]}"
 
-    # Save to disk and database
     save_spec_to_file(spec)
     persist_spec_to_sqlite(spec)
 
-    # Generate synthetic trial rows to test generalization in Phase 4
     trial_rows = generate_trial_rows(spec.variables)
 
     res = {
