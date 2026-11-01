@@ -33,7 +33,6 @@ class ResponseCache:
     def set(self, key: str, value: dict[str, Any]):
         """Stores a response in cache, evicting oldest if max_size is reached."""
         if len(self._cache) >= self._max_size:
-            # Evict first inserted key (FIFO)
             first_key = next(iter(self._cache))
             del self._cache[first_key]
         self._cache[key] = value
@@ -51,6 +50,5 @@ class ResponseCache:
         return len(self._cache)
 
 
-# Global singleton instance
 llm_cache = ResponseCache()
 

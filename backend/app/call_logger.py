@@ -77,12 +77,10 @@ class GemmaCallLogger:
             error=error
         )
 
-        # Store in-memory
         self._memory_logs.insert(0, log_entry)
         if len(self._memory_logs) > self.max_in_memory:
             self._memory_logs.pop()
 
-        # Persist to SQLite
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
@@ -107,7 +105,6 @@ class GemmaCallLogger:
                 )
                 conn.commit()
         except Exception as e:
-            # Non-blocking log failure
             print(f"[CallLogger] SQLite write warning: {e}")
 
         return log_entry
@@ -156,6 +153,5 @@ class GemmaCallLogger:
             pass
 
 
-# Global singleton instance
 call_logger = GemmaCallLogger()
 

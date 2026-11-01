@@ -42,7 +42,6 @@ def resize_and_compress_image(
     else:
         raise ValueError(f"Unsupported image input type: {type(image_input)}")
 
-    # Convert RGBA / P modes to RGB with white background for JPEG encoding
     if img.mode in ("RGBA", "LA", "P"):
         background = Image.new("RGB", img.size, (255, 255, 255))
         if img.mode == "P":
@@ -52,14 +51,12 @@ def resize_and_compress_image(
     elif img.mode != "RGB":
         img = img.convert("RGB")
 
-    # Downscale if width exceeds max_width
     orig_w, orig_h = img.size
     if orig_w > max_width:
         new_w = max_width
         new_h = int((max_width / orig_w) * orig_h)
         img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-    # Compress to JPEG
     output_buf = io.BytesIO()
     img.save(output_buf, format="JPEG", quality=quality, optimize=True)
     return output_buf.getvalue()
