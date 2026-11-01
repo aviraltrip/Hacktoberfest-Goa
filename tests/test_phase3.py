@@ -13,14 +13,16 @@ import sys
 import unittest
 from pathlib import Path
 from typing import Optional
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
-
-BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
-sys.path.insert(0, str(BACKEND_DIR))
-
 from langgraph.types import Command
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = ROOT_DIR / "backend"
+for p in (str(BACKEND_DIR), str(ROOT_DIR)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 try:
     from app.exporter import export_standalone_script
@@ -30,8 +32,10 @@ try:
         Locator,
         RowResult,
         Step,
+        StepResult,
         SuccessCondition,
         UnderstandStepOutput,
+        UnderstandWorkflowOutput,
         Variable,
         WorkflowSpec,
     )
@@ -49,8 +53,10 @@ except ImportError:
         Locator,
         RowResult,
         Step,
+        StepResult,
         SuccessCondition,
         UnderstandStepOutput,
+        UnderstandWorkflowOutput,
         Variable,
         WorkflowSpec,
     )
@@ -156,7 +162,25 @@ class TestPhase3Compilation(unittest.TestCase):
 class TestPhase3LangGraph(unittest.TestCase):
     """Verifies LangGraph Compile Graph execution, interrupt, and resume."""
 
-    def test_compile_graph_interrupt_and_resume(self):
+    @patch("app.nodes.verify.verify_single_row")
+    @patch("app.nodes.trial_run._async_trial_run")
+    @patch("app.nodes.understand.understand_workflow_synthesis")
+    def test_compile_graph_interrupt_and_resume(self, mock_synth, mock_trial, mock_verify):
+        mock_synth.return_value = UnderstandWorkflowOutput(
+            name="Approved Scholarship Workflow",
+            variables=[Variable(name="student_name", type="text", example="Alice", options=[])],
+            success=SuccessCondition(text_visible="Application received", visual="Alert shown")
+        )
+        mock_trial.return_value = [
+            RowResult(
+                row_idx=1,
+                row_data={"student_name": "Alice"},
+                steps=[StepResult(idx=1, ok=True), StepResult(idx=2, ok=True)],
+                success=True
+            )
+        ]
+        mock_verify.side_effect = lambda r, s, client=None: r
+
         graph = build_compile_graph()
         thread_config = {"configurable": {"thread_id": "test_thread_p3_stream"}}
 
@@ -218,7 +242,8 @@ class TestPhase3API(unittest.TestCase):
         resp = self.client.post("/api/compile", json={"recording_id": "non_existent_rec"})
         self.assertEqual(resp.status_code, 400)
 
-    def test_compile_and_export_lifecycle(self):
+    @patch("app.main._run_compile_thread_worker")
+    def test_compile_and_export_lifecycle(self, mock_worker):
         rec_id = "rec_test_api_p3"
         completed_recordings[rec_id] = [
             Step(idx=1, action="goto", value="http://localhost:8080", intent="Go to portal"),
