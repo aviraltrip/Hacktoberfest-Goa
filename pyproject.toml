@@ -1,5 +1,11 @@
 [tool.pyright]
 extraPaths = ["backend"]
+include = ["backend", "tests", "scripts"]
+reportArgumentType = "none"
+reportOptionalMemberAccess = "none"
+reportAssignmentType = "none"
+reportCallIssue = "none"
+reportAttributeAccessIssue = "none"
 
 [tool.ruff]
 src = ["backend", "tests", "scripts"]

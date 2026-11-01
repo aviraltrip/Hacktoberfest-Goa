@@ -13,6 +13,7 @@ Tests:
 import sys
 import unittest
 from pathlib import Path
+from typing import Optional
 
 from fastapi.testclient import TestClient
 
@@ -200,9 +201,10 @@ class TestPhase5RunGraph(unittest.TestCase):
         state_after_interrupt = graph.get_state(thread_config)
         self.assertEqual(state_after_interrupt.next, ("review_heal",))
 
-        proposal: HealProposal = state_after_interrupt.values.get("heal_proposal")
+        proposal: Optional[HealProposal] = state_after_interrupt.values.get("heal_proposal")
         self.assertIsNotNone(proposal)
-        self.assertEqual(proposal.step_idx, 2)
+        if proposal:
+            self.assertEqual(proposal.step_idx, 2)
 
         mock_success_results = [
             RowResult(
@@ -218,9 +220,11 @@ class TestPhase5RunGraph(unittest.TestCase):
             pass
 
         final_state = graph.get_state(thread_config)
-        patched_spec: WorkflowSpec = final_state.values.get("spec")
-        self.assertGreater(len(patched_spec.steps[1].locators), 1)
-        self.assertEqual(patched_spec.steps[1].locators[0].value, "button.ui-footer-act-pill")
+        patched_spec: Optional[WorkflowSpec] = final_state.values.get("spec")
+        self.assertIsNotNone(patched_spec)
+        if patched_spec:
+            self.assertGreater(len(patched_spec.steps[1].locators), 1)
+            self.assertEqual(patched_spec.steps[1].locators[0].value, "button.ui-footer-act-pill")
 
 
 class TestPhase5API(unittest.TestCase):

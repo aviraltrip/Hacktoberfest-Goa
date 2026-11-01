@@ -12,6 +12,7 @@ import asyncio
 import sys
 import unittest
 from pathlib import Path
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
@@ -112,8 +113,9 @@ class TestPhase3Understanding(unittest.TestCase):
         self.assertEqual(updated_step.intent, "Enter applicant's full legal name")
         self.assertEqual(updated_step.value, "{{applicant_name}}")
         self.assertIsNotNone(var_obj)
-        self.assertEqual(var_obj.name, "applicant_name")
-        self.assertEqual(var_obj.example, "Aarav Patel")
+        if var_obj:
+            self.assertEqual(var_obj.name, "applicant_name")
+            self.assertEqual(var_obj.example, "Aarav Patel")
 
 
 class TestPhase3Compilation(unittest.TestCase):
@@ -199,9 +201,11 @@ class TestPhase3LangGraph(unittest.TestCase):
         final_state = graph.get_state(thread_config)
 
         self.assertEqual(final_state.values.get("status"), "saved")
-        final_spec: WorkflowSpec = final_state.values.get("spec")
-        self.assertEqual(final_spec.name, "Approved Scholarship Workflow")
-        self.assertEqual(final_spec.variables[0].name, "student_name")
+        final_spec: Optional[WorkflowSpec] = final_state.values.get("spec")
+        self.assertIsNotNone(final_spec)
+        if final_spec:
+            self.assertEqual(final_spec.name, "Approved Scholarship Workflow")
+            self.assertEqual(final_spec.variables[0].name, "student_name")
 
 
 class TestPhase3API(unittest.TestCase):

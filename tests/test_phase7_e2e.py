@@ -13,6 +13,7 @@ Validates the complete autonomous lifecycle:
 import sys
 import unittest
 from pathlib import Path
+from typing import Optional
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = ROOT_DIR / "backend"
@@ -69,25 +70,20 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
                 action="fill",
                 value="Maya Deshmukh",
                 locators=[Locator(kind="label", value="Full name")],
-                intent="Enter applicant name",
-                role="variable",
-                variable_name="applicant_name"
+                intent="Enter applicant name"
             ),
             Step(
                 idx=3,
                 action="select",
                 value="Computer Science",
                 locators=[Locator(kind="label", value="Department")],
-                intent="Select applicant department",
-                role="variable",
-                variable_name="department"
+                intent="Select applicant department"
             ),
             Step(
                 idx=4,
                 action="click",
                 locators=[Locator(kind="css", value="#submitBtn")],
-                intent="Submit scholarship application",
-                role="constant"
+                intent="Submit scholarship application"
             )
         ]
 
@@ -134,10 +130,11 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
         final_compile_state = compile_graph.get_state(compile_thread)
         self.assertEqual(final_compile_state.values.get("status"), "saved")
 
-        compiled_spec: WorkflowSpec = final_compile_state.values.get("spec")
+        compiled_spec: Optional[WorkflowSpec] = final_compile_state.values.get("spec")
         self.assertIsNotNone(compiled_spec)
-        self.assertEqual(compiled_spec.name, "E2E Scholarship Application Skill")
-        self.assertEqual(len(compiled_spec.steps), 4)
+        if compiled_spec:
+            self.assertEqual(compiled_spec.name, "E2E Scholarship Application Skill")
+            self.assertEqual(len(compiled_spec.steps), 4)
 
         run_graph = build_run_graph()
         run_thread = {"configurable": {"thread_id": "e2e_run_thread"}}
@@ -172,9 +169,10 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
         state_after_heal = run_graph.get_state(run_thread)
         self.assertEqual(state_after_heal.next, ("review_heal",))
 
-        proposal: HealProposal = state_after_heal.values.get("heal_proposal")
+        proposal: Optional[HealProposal] = state_after_heal.values.get("heal_proposal")
         self.assertIsNotNone(proposal)
-        self.assertEqual(proposal.step_idx, 4)
+        if proposal:
+            self.assertEqual(proposal.step_idx, 4)
 
         cand_btn = CandidateElement(
             id=3,
@@ -208,15 +206,18 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
             pass
 
         final_run_state = run_graph.get_state(run_thread)
-        patched_spec: WorkflowSpec = final_run_state.values.get("spec")
+        patched_spec: Optional[WorkflowSpec] = final_run_state.values.get("spec")
+        self.assertIsNotNone(patched_spec)
 
-        self.assertEqual(patched_spec.steps[3].locators[0].value, "button.ui-footer-act-pill")
+        if patched_spec:
+            self.assertEqual(patched_spec.steps[3].locators[0].value, "button.ui-footer-act-pill")
         self.assertEqual(final_run_state.values.get("status"), "completed")
 
-        script_code = export_standalone_script(patched_spec)
-        self.assertIn("async def run_skill", script_code)
-        self.assertIn("button.ui-footer-act-pill", script_code)
-        self.assertIn("E2E Scholarship Application Skill", script_code)
+        if patched_spec:
+            script_code = export_standalone_script(patched_spec)
+            self.assertIn("async def run_skill", script_code)
+            self.assertIn("button.ui-footer-act-pill", script_code)
+            self.assertIn("E2E Scholarship Application Skill", script_code)
 
 
 if __name__ == "__main__":

@@ -113,7 +113,9 @@ class TestPhase1Models(unittest.TestCase):
             proposed_locator=Locator(kind="css", value="button.btn-action-xyz")
         )
         self.assertEqual(proposal.choice, 3)
-        self.assertEqual(proposal.candidate.id, 3)
+        self.assertIsNotNone(proposal.candidate)
+        if proposal.candidate:
+            self.assertEqual(proposal.candidate.id, 3)
 
 
 class TestPhase1Imaging(unittest.TestCase):

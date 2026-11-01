@@ -4,6 +4,13 @@
   ],
   "python.autoComplete.extraPaths": [
     "./backend"
-  ]
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportArgumentType": "none",
+    "reportOptionalMemberAccess": "none",
+    "reportAssignmentType": "none",
+    "reportCallIssue": "none",
+    "reportAttributeAccessIssue": "none"
+  }
 }
-

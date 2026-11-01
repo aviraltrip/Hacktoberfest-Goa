@@ -118,7 +118,7 @@ def run_rows_node(state: RunState) -> dict[str, Any]:
         return {"status": "failed", "error": "No spec loaded"}
 
     if state.get("results"):
-        results = state["results"]
+        results = state.get("results") or []
     else:
         async def _exec():
             runner = WorkflowRunner(run_id=run_id)

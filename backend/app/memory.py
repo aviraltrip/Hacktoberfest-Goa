@@ -82,7 +82,7 @@ class HealMemory:
                 (site, intent, old_locator, new_locator)
             )
             conn.commit()
-            return cursor.lastrowid
+            return cursor.lastrowid or 0
 
     def lookup_hints(
         self,

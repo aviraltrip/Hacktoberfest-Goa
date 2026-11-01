@@ -256,6 +256,8 @@ class GemmaClient:
                 )
                 raise
 
+        raise RuntimeError(f"Gemma execution failed after retries: {last_error}")
+
 
 gemma_client = GemmaClient()
 

@@ -113,7 +113,9 @@ class TestPhase4Runner(unittest.TestCase):
 
         self.assertIsNotNone(winning_target)
         self.assertEqual(winning_target, target3)
-        self.assertEqual(winning_loc.value, "#submitBtn")
+        self.assertIsNotNone(winning_loc)
+        if winning_loc:
+            self.assertEqual(winning_loc.value, "#submitBtn")
 
 
 class TestPhase4Verification(unittest.TestCase):
@@ -166,7 +168,8 @@ class TestPhase4Verification(unittest.TestCase):
         loop.close()
 
         self.assertFalse(evaluated_row.success)
-        self.assertIn("Execution failed on step 2", evaluated_row.evidence)
+        self.assertIsNotNone(evaluated_row.evidence)
+        self.assertIn("Execution failed on step 2", evaluated_row.evidence or "")
 
 
 class TestPhase4API(unittest.TestCase):

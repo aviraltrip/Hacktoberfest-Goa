@@ -108,6 +108,6 @@ def compile_spec_node(state: CompileState) -> dict[str, Any]:
         "status": "testing"
     }
     if state.get("results"):
-        res["results"] = state["results"]
+        res["results"] = state.get("results")
 
     return res
