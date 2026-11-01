@@ -88,9 +88,8 @@ class TestPhase5CandidatesAndBM25(unittest.TestCase):
         ranked = rank_candidates_bm25(cands, query, top_k=3)
 
         self.assertEqual(len(ranked), 3)
-        # Button MUST rank 1st with highest BM25 score
         self.assertEqual(ranked[0].tag, "button")
-        self.assertEqual(ranked[0].id, 1)  # Reindexed to Box #1
+        self.assertEqual(ranked[0].id, 1)
         self.assertGreater(ranked[0].bm25_score, ranked[1].bm25_score)
 
     def test_candidates_table_formatting(self):
@@ -113,7 +112,6 @@ class TestPhase5HealMemory(unittest.TestCase):
         mem = HealMemory(db_path=test_db)
         mem.clear()
 
-        # Save past repair
         mem.save_heal(
             site="scholarship_portal",
             intent="Submit the scholarship application form",
@@ -121,12 +119,10 @@ class TestPhase5HealMemory(unittest.TestCase):
             new_locator="button.ui-footer-act-pill"
         )
 
-        # Lookup with similar intent query
         hints = mem.lookup_hints(site="scholarship_portal", intent="Submit scholarship", limit=2)
         self.assertGreaterEqual(len(hints), 1)
         self.assertIn("button.ui-footer-act-pill", hints[0])
 
-        # Cleanup
         mem.clear()
         if test_db.exists():
             test_db.unlink()
@@ -140,15 +136,12 @@ class TestPhase5RoleAndLocatorValidation(unittest.TestCase):
         input_cand = CandidateElement(id=2, tag="input", role="textbox")
         select_cand = CandidateElement(id=3, tag="select", role="combobox")
 
-        # fill requires input
         self.assertTrue(validate_role_compatibility("fill", input_cand))
         self.assertFalse(validate_role_compatibility("fill", btn_cand))
 
-        # select requires select
         self.assertTrue(validate_role_compatibility("select", select_cand))
         self.assertFalse(validate_role_compatibility("select", input_cand))
 
-        # click accepts button
         self.assertTrue(validate_role_compatibility("click", btn_cand))
 
     def test_synthesize_new_locator(self):
@@ -175,7 +168,6 @@ class TestPhase5RunGraph(unittest.TestCase):
         graph = build_run_graph()
         thread_config = {"configurable": {"thread_id": "test_run_graph_thread"}}
 
-        # Broken spec where step 2 has an outdated selector
         step2 = Step(
             idx=2,
             action="click",
@@ -193,7 +185,6 @@ class TestPhase5RunGraph(unittest.TestCase):
             success=SuccessCondition(visual="Done")
         )
 
-        # Mock an execution failure on step 2
         initial_state = {
             "run_id": "run_test_heal",
             "spec_id": spec.id,
@@ -214,21 +205,16 @@ class TestPhase5RunGraph(unittest.TestCase):
             "status": "running"
         }
 
-        # Step 1: Execute graph until heal review interrupt
         for chunk in graph.stream(initial_state, config=thread_config):
             pass
 
         state_after_interrupt = graph.get_state(thread_config)
-        # Graph MUST pause at review_heal for user approval
         self.assertEqual(state_after_interrupt.next, ("review_heal",))
 
-        # Verify proposal was created
         proposal: HealProposal = state_after_interrupt.values.get("heal_proposal")
         self.assertIsNotNone(proposal)
         self.assertEqual(proposal.step_idx, 2)
 
-        # Step 2: Resume with human approval
-        # Simulate that re-execution with patched spec succeeds
         mock_success_results = [
             RowResult(
                 row_idx=1,
@@ -239,13 +225,10 @@ class TestPhase5RunGraph(unittest.TestCase):
         ]
 
         resume_payload = {"approved": True, "results": mock_success_results}
-        # In resume, patch_spec runs and loops back to run_rows
-        # We supply success results on 2nd loop through run_rows
         for chunk in graph.stream(Command(resume=resume_payload), config=thread_config):
             pass
 
         final_state = graph.get_state(thread_config)
-        # Verify step 2 locators have been patched with the new locator at index 0
         patched_spec: WorkflowSpec = final_state.values.get("spec")
         self.assertGreater(len(patched_spec.steps[1].locators), 1)
         self.assertEqual(patched_spec.steps[1].locators[0].value, "button.ui-footer-act-pill")

@@ -63,7 +63,6 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
     """End-to-end integration test validating the complete system loop."""
 
     def test_full_compile_and_healing_lifecycle(self):
-        # 1. Prepare raw recorded steps from ScholarshipPortal baseline
         raw_steps = [
             Step(
                 idx=1,
@@ -99,7 +98,6 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
             )
         ]
 
-        # 2. Build and run Compile Graph
         compile_graph = build_compile_graph()
         compile_thread = {"configurable": {"thread_id": "e2e_compile_thread"}}
 
@@ -115,15 +113,12 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
             "error": None
         }
 
-        # Step A: Run until review_intents interrupt
         for chunk in compile_graph.stream(initial_compile_state, config=compile_thread):
             pass
 
         state_after_intents = compile_graph.get_state(compile_thread)
         self.assertEqual(state_after_intents.next, ("review_intents",))
 
-        # Step B: Human approves detected variables and intents
-        # Supply mock successful trial results to pass verification offline
         mock_trial_results = [
             RowResult(
                 row_idx=1,
@@ -151,12 +146,9 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
         self.assertEqual(compiled_spec.name, "E2E Scholarship Application Skill")
         self.assertEqual(len(compiled_spec.steps), 4)
 
-        # 3. Simulate UI Mutation & Run Graph Self-Healing Loop
-        # Target site updates to ?v=2: #submitBtn is missing, replaced by button.ui-footer-act-pill
         run_graph = build_run_graph()
         run_thread = {"configurable": {"thread_id": "e2e_run_thread"}}
 
-        # Execution failure on step 4
         failed_results = [
             RowResult(
                 row_idx=1,
@@ -181,7 +173,6 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
             "status": "running"
         }
 
-        # Step C: Run until review_heal interrupt
         for chunk in run_graph.stream(initial_run_state, config=run_thread):
             pass
 
@@ -192,7 +183,6 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
         self.assertIsNotNone(proposal)
         self.assertEqual(proposal.step_idx, 4)
 
-        # 4. Verify Role Gate and Locator Synthesis
         cand_btn = CandidateElement(
             id=3,
             tag="button",
@@ -206,7 +196,6 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
         self.assertEqual(new_loc.kind, "css")
         self.assertEqual(new_loc.value, "button.ui-footer-act-pill")
 
-        # Step D: Resume with approved heal proposal
         mock_healed_results = [
             RowResult(
                 row_idx=1,
@@ -228,11 +217,9 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
         final_run_state = run_graph.get_state(run_thread)
         patched_spec: WorkflowSpec = final_run_state.values.get("spec")
         
-        # Verify step 4 has the new locator prepended as top-priority candidate
         self.assertEqual(patched_spec.steps[3].locators[0].value, "button.ui-footer-act-pill")
         self.assertEqual(final_run_state.values.get("status"), "completed")
 
-        # 5. Export Standalone Playwright Script and Verify Output
         script_code = export_standalone_script(patched_spec)
         self.assertIn("async def run_skill", script_code)
         self.assertIn("button.ui-footer-act-pill", script_code)

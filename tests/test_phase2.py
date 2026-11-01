@@ -12,7 +12,6 @@ import unittest
 from pathlib import Path
 from fastapi.testclient import TestClient
 
-# Ensure backend directory is in sys.path
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
@@ -40,13 +39,11 @@ class TestPhase2Locators(unittest.TestCase):
         locators = build_locators_for_element(elem)
         self.assertGreater(len(locators), 0)
 
-        # 1st locator MUST be role + name
         first = locators[0]
         self.assertEqual(first.kind, "role")
         self.assertEqual(first.value, "button")
         self.assertEqual(first.name, "Submit Application")
 
-        # CSS selector should be present as fallback
         kinds = [l.kind for l in locators]
         self.assertIn("css", kinds)
 
@@ -104,7 +101,6 @@ class TestPhase2Coalescing(unittest.TestCase):
         ]
         steps = coalesce_recorded_events(raw_events)
 
-        # 4 keystroke events must coalesce into exactly 1 'fill' step
         self.assertEqual(len(steps), 1)
         self.assertEqual(steps[0].action, "fill")
         self.assertEqual(steps[0].value, "Alice")

@@ -13,7 +13,6 @@ import unittest
 from pathlib import Path
 from PIL import Image
 
-# Ensure backend is on sys.path
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
@@ -102,19 +101,16 @@ class TestPhase1Imaging(unittest.TestCase):
     """Verifies image downscaling and base64 transformations."""
 
     def test_downscale_large_image(self):
-        # Create a large 2400x1600 image
         img = Image.new("RGB", (2400, 1600), color=(100, 150, 200))
         compressed_bytes = resize_and_compress_image(img, max_width=1024, quality=70)
 
-        # Inspect resulting image
         import io
         result_img = Image.open(io.BytesIO(compressed_bytes))
         self.assertEqual(result_img.width, 1024)
         self.assertEqual(result_img.height, int((1024 / 2400) * 1600))
-        self.assertLess(len(compressed_bytes), 150_000)  # Should be well below 150KB
+        self.assertLess(len(compressed_bytes), 150_000)
 
     def test_rgba_to_rgb_conversion(self):
-        # Transparent RGBA image
         img = Image.new("RGBA", (500, 500), color=(255, 0, 0, 128))
         compressed_bytes = resize_and_compress_image(img)
         self.assertTrue(len(compressed_bytes) > 0)
@@ -178,7 +174,6 @@ class TestPhase1CacheAndLogger(unittest.TestCase):
         self.assertEqual(cache.size(), 3)
         self.assertTrue(cache.has(k1))
 
-        # Adding 4th item should evict k1 (FIFO)
         cache.set(k4, {"v": 4})
         self.assertEqual(cache.size(), 3)
         self.assertFalse(cache.has(k1))
@@ -207,7 +202,6 @@ class TestPhase1CacheAndLogger(unittest.TestCase):
         self.assertEqual(recent[0].endpoint, "understand_step")
         self.assertEqual(recent[0].latency_ms, 210.5)
 
-        # Cleanup
         logger.clear()
         if test_db.exists():
             test_db.unlink()

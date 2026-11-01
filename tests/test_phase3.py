@@ -15,7 +15,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
-# Ensure backend directory is in sys.path
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
@@ -113,10 +112,8 @@ class TestPhase3Compilation(unittest.TestCase):
         ]
         rows = generate_trial_rows(vars_list)
         self.assertEqual(len(rows), 2)
-        # Verify select variation
         self.assertEqual(rows[0]["dept"], "CS")
         self.assertEqual(rows[1]["dept"], "IT")
-        # Verify number variation
         self.assertEqual(rows[0]["year"], 2026)
         self.assertEqual(rows[1]["year"], 2027)
 
@@ -167,16 +164,13 @@ class TestPhase3LangGraph(unittest.TestCase):
             "status": "understanding"
         }
 
-        # Step 1: Run graph until interrupt using stream
         for chunk in graph.stream(initial_state, config=thread_config):
             pass
 
         state_after_interrupt = graph.get_state(thread_config)
 
-        # Verify graph paused at review_intents
         self.assertEqual(state_after_interrupt.next, ("review_intents",))
 
-        # Step 2: Resume graph with human approval Command
         resume_payload = {
             "name": "Approved Scholarship Workflow",
             "variables": [
@@ -189,7 +183,6 @@ class TestPhase3LangGraph(unittest.TestCase):
 
         final_state = graph.get_state(thread_config)
 
-        # Verify completion
         self.assertEqual(final_state.values.get("status"), "saved")
         final_spec: WorkflowSpec = final_state.values.get("spec")
         self.assertEqual(final_spec.name, "Approved Scholarship Workflow")
@@ -213,7 +206,6 @@ class TestPhase3API(unittest.TestCase):
             Step(idx=2, action="click", intent="Submit", locators=[Locator(kind="role", value="button", name="Submit")])
         ]
 
-        # Trigger compilation
         resp = self.client.post("/api/compile", json={"recording_id": rec_id})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()

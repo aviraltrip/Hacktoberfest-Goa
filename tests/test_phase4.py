@@ -90,7 +90,6 @@ class TestPhase4Runner(unittest.TestCase):
 
         mock_page = MagicMock()
 
-        # Mock targets
         target1 = MagicMock()
         target1.count = AsyncMock(return_value=0)
 
@@ -188,7 +187,6 @@ class TestPhase4API(unittest.TestCase):
 
     @patch("app.main._run_batch_worker", new_callable=AsyncMock)
     def test_run_lifecycle_and_history(self, mock_worker):
-        # Save a test spec
         spec = WorkflowSpec(
             id="spec_test_phase4",
             name="Phase 4 Test Portal",
@@ -201,7 +199,6 @@ class TestPhase4API(unittest.TestCase):
         )
         save_spec_to_file(spec)
 
-        # Trigger run
         resp = self.client.post("/api/run", json={
             "spec_id": "spec_test_phase4",
             "rows": [{"applicant": "Student A"}, {"applicant": "Student B"}],
@@ -216,7 +213,6 @@ class TestPhase4API(unittest.TestCase):
         run_id = data["run_id"]
         self.assertIn(run_id, active_runs)
 
-        # Query runs list
         resp_list = self.client.get("/api/runs")
         self.assertEqual(resp_list.status_code, 200)
         self.assertIsInstance(resp_list.json(), list)
