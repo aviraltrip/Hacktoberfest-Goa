@@ -7,7 +7,7 @@ export function getImageUrl(path?: string | null): string {
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/static/')) {
     return path;
   }
-  // If filename or relative path
+  
   const filename = path.replace(/\\/g, '/').split('/').pop();
   return `/static/shots/${filename}`;
 }
@@ -23,7 +23,7 @@ async function handleResponse<T>(res: Response, defaultError = 'Request failed')
         msg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
       }
     } catch {
-      // Use rawText or defaultError
+      
     }
     throw new Error(msg);
   }

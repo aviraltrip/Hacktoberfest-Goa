@@ -22,15 +22,15 @@ import SpecsView from './components/SpecsView';
 export default function App() {
   const [activeTab, setActiveTab] = useState<'record' | 'runs' | 'specs' | 'ablation'>('record');
   
-  // Recording & Compilation State
+  
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   const [recordedSteps, setRecordedSteps] = useState<Step[] | null>(null);
   const [compiledSpec, setCompiledSpec] = useState<WorkflowSpec | null>(null);
 
-  // Healing Modal State
+  
   const [activeHeal, setActiveHeal] = useState<{ runId: string; proposal: HealProposal } | null>(null);
 
-  // Gemma Inspector Slide-over Drawer
+  
   const [inspectorOpen, setInspectorOpen] = useState(false);
 
   const handleRecordingComplete = (recId: string, steps: Step[]) => {
@@ -52,7 +52,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
-      {/* Top Navbar */}
+      
       <header className="border-b border-slate-800 bg-slate-900/70 backdrop-blur sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-indigo-600/20 border border-indigo-500/30 rounded-2xl text-indigo-400 shadow-inner">
@@ -71,7 +71,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        
         <nav className="hidden md:flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl">
           <button
             onClick={() => setActiveTab('record')}
@@ -107,7 +107,7 @@ export default function App() {
           </button>
         </nav>
 
-        {/* Right Action: Gemma Inspector Drawer Toggle */}
+        
         <div className="flex items-center gap-2">
           <button
             onClick={() => setInspectorOpen(true)}
@@ -120,7 +120,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Area */}
+      
       <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
         {activeTab === 'record' && (
           !recordedSteps ? (
@@ -151,7 +151,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Set-of-Marks Healing Review Modal */}
+      
       {activeHeal && (
         <HealModal
           runId={activeHeal.runId}
@@ -161,7 +161,7 @@ export default function App() {
         />
       )}
 
-      {/* Gemma 4 Call Inspector Slide-Over Drawer */}
+      
       <GemmaInspector
         isOpen={inspectorOpen}
         onClose={() => setInspectorOpen(false)}
