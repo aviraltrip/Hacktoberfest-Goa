@@ -12,11 +12,9 @@ import time
 import re
 import asyncio
 from typing import Optional, Any, Callable
-from pathlib import Path
-from playwright.async_api import async_playwright, Page, Browser, BrowserContext
+from playwright.async_api import async_playwright, Page, Browser
 
 from app.config import (
-    SHOTS_DIR,
     NETWORK_IDLE_TIMEOUT_MS,
     POST_ACTION_SETTLE_MS
 )

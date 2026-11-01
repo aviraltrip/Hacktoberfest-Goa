@@ -8,7 +8,6 @@ healing hints to Gemma 4 during Set-of-Marks visual reasoning.
 import sqlite3
 import re
 from pathlib import Path
-from typing import Optional
 from app.config import DB_PATH
 
 

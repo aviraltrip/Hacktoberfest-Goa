@@ -17,24 +17,44 @@ from PIL import Image
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
-from app.cache import ResponseCache
-from app.call_logger import GemmaCallLogger
-from app.imaging import (
-    compute_image_hash,
-    decode_image_from_base64,
-    encode_image_to_base64,
-    resize_and_compress_image,
-)
-from app.llm import extract_json_payload
-from app.models import (
-    CandidateElement,
-    HealProposal,
-    Locator,
-    Step,
-    SuccessCondition,
-    Variable,
-    WorkflowSpec,
-)
+try:
+    from app.cache import ResponseCache
+    from app.call_logger import GemmaCallLogger
+    from app.imaging import (
+        compute_image_hash,
+        decode_image_from_base64,
+        encode_image_to_base64,
+        resize_and_compress_image,
+    )
+    from app.llm import extract_json_payload
+    from app.models import (
+        CandidateElement,
+        HealProposal,
+        Locator,
+        Step,
+        SuccessCondition,
+        Variable,
+        WorkflowSpec,
+    )
+except ImportError:
+    from backend.app.cache import ResponseCache
+    from backend.app.call_logger import GemmaCallLogger
+    from backend.app.imaging import (
+        compute_image_hash,
+        decode_image_from_base64,
+        encode_image_to_base64,
+        resize_and_compress_image,
+    )
+    from backend.app.llm import extract_json_payload
+    from backend.app.models import (
+        CandidateElement,
+        HealProposal,
+        Locator,
+        Step,
+        SuccessCondition,
+        Variable,
+        WorkflowSpec,
+    )
 
 
 class TestPhase1Models(unittest.TestCase):

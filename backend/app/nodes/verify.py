@@ -60,7 +60,6 @@ async def verify_single_row(
     deterministic_notes = []
 
     if spec.success.text_visible:
-        text_target = spec.success.text_visible.lower()
         deterministic_notes.append(f"Expected text '{spec.success.text_visible}'")
 
     if spec.success.url_contains:

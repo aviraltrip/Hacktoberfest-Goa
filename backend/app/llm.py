@@ -10,7 +10,6 @@ Provides:
 7. Full invocation telemetry logging to call_logger for the UI Call Inspector.
 """
 
-import os
 import re
 import json
 import time
@@ -22,7 +21,6 @@ from pydantic import BaseModel, ValidationError
 from app.config import (
     GEMINI_API_KEY,
     GEMMA_MODEL,
-    GEMMA_REPAIR_MODEL,
     MAX_CONCURRENT_GEMMA_CALLS
 )
 from app.imaging import (

@@ -17,7 +17,7 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
-    except Exception:
+    except (AttributeError, ValueError):
         pass
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -77,7 +77,7 @@ def launch_all():
             try:
                 proc.terminate()
                 proc.wait(timeout=3)
-            except Exception:
+            except (OSError, subprocess.SubprocessError):
                 proc.kill()
         print("All services stopped.")
 

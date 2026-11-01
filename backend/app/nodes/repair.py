@@ -11,7 +11,6 @@ Serves as the showpiece cognitive engine for 'Best Use of Gemma 4 Only':
 """
 
 import re
-import asyncio
 from pathlib import Path
 from typing import Optional, Any
 from playwright.async_api import Page
@@ -24,7 +23,6 @@ from app.config import (
 )
 from app.models import (
     CompileState,
-    WorkflowSpec,
     Step,
     Locator,
     CandidateElement,
@@ -154,7 +152,7 @@ async def repair_step_multimodal(
         print("[RepairNode] No live candidates extracted from DOM.")
         return None
 
-    query = f"{step.intent} {' '.join(l.value for l in step.locators)}"
+    query = f"{step.intent} {' '.join(loc.value for loc in step.locators)}"
     top_candidates = rank_candidates_bm25(candidates, query_text=query, top_k=8)
     if not top_candidates:
         return None

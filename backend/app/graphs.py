@@ -12,7 +12,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import interrupt
 
-from app.models import CompileState, RunState, WorkflowSpec, RowResult, Step, Locator, HealProposal
+from app.models import CompileState, RunState, WorkflowSpec, Step, Locator, HealProposal
 from app.nodes.understand import understand_node
 from app.nodes.review import review_intents_node
 from app.nodes.compile_spec import compile_spec_node
@@ -21,7 +21,7 @@ from app.nodes.verify import verify_node
 from app.nodes.repair import repair_node
 from app.nodes.save import save_node
 from app.runner import WorkflowRunner
-from app.config import DB_PATH, SPECS_DIR
+from app.config import SPECS_DIR
 
 MAX_REPAIRS = 2
 

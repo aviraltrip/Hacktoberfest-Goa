@@ -209,7 +209,7 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
 
         final_run_state = run_graph.get_state(run_thread)
         patched_spec: WorkflowSpec = final_run_state.values.get("spec")
-        
+
         self.assertEqual(patched_spec.steps[3].locators[0].value, "button.ui-footer-act-pill")
         self.assertEqual(final_run_state.values.get("status"), "completed")
 

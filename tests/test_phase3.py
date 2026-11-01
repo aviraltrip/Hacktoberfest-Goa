@@ -21,24 +21,44 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 from langgraph.types import Command
 
-from app.exporter import export_standalone_script
-from app.graphs import build_compile_graph
-from app.main import active_compilations, app, completed_recordings
-from app.models import (
-    Locator,
-    RowResult,
-    Step,
-    SuccessCondition,
-    UnderstandStepOutput,
-    Variable,
-    WorkflowSpec,
-)
-from app.nodes.compile_spec import generate_trial_rows
-from app.nodes.understand import (
-    format_step_prompt,
-    format_workflow_prompt,
-    understand_single_step,
-)
+try:
+    from app.exporter import export_standalone_script
+    from app.graphs import build_compile_graph
+    from app.main import active_compilations, app, completed_recordings
+    from app.models import (
+        Locator,
+        RowResult,
+        Step,
+        SuccessCondition,
+        UnderstandStepOutput,
+        Variable,
+        WorkflowSpec,
+    )
+    from app.nodes.compile_spec import generate_trial_rows
+    from app.nodes.understand import (
+        format_step_prompt,
+        format_workflow_prompt,
+        understand_single_step,
+    )
+except ImportError:
+    from backend.app.exporter import export_standalone_script
+    from backend.app.graphs import build_compile_graph
+    from backend.app.main import active_compilations, app, completed_recordings
+    from backend.app.models import (
+        Locator,
+        RowResult,
+        Step,
+        SuccessCondition,
+        UnderstandStepOutput,
+        Variable,
+        WorkflowSpec,
+    )
+    from backend.app.nodes.compile_spec import generate_trial_rows
+    from backend.app.nodes.understand import (
+        format_step_prompt,
+        format_workflow_prompt,
+        understand_single_step,
+    )
 
 
 class TestPhase3Understanding(unittest.TestCase):

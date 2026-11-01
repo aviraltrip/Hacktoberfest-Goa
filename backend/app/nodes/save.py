@@ -8,7 +8,7 @@ import sqlite3
 from typing import Any
 from pathlib import Path
 
-from app.config import SPECS_DIR, DB_PATH
+from app.config import DB_PATH
 from app.models import CompileState, WorkflowSpec, RowResult
 from app.nodes.compile_spec import save_spec_to_file, persist_spec_to_sqlite
 

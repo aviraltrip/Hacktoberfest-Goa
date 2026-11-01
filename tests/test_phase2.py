@@ -16,12 +16,20 @@ from fastapi.testclient import TestClient
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
-from app.locators import (
-    build_locators_for_element,
-    coalesce_recorded_events,
-    trim_dom_context,
-)
-from app.main import app
+try:
+    from app.locators import (
+        build_locators_for_element,
+        coalesce_recorded_events,
+        trim_dom_context,
+    )
+    from app.main import app
+except ImportError:
+    from backend.app.locators import (
+        build_locators_for_element,
+        coalesce_recorded_events,
+        trim_dom_context,
+    )
+    from backend.app.main import app
 
 
 class TestPhase2Locators(unittest.TestCase):
@@ -43,7 +51,7 @@ class TestPhase2Locators(unittest.TestCase):
         self.assertEqual(first.value, "button")
         self.assertEqual(first.name, "Submit Application")
 
-        kinds = [l.kind for l in locators]
+        kinds = [loc.kind for loc in locators]
         self.assertIn("css", kinds)
 
     def test_input_with_label_and_placeholder(self):
@@ -56,7 +64,7 @@ class TestPhase2Locators(unittest.TestCase):
             "id": "fullName"
         }
         locators = build_locators_for_element(elem)
-        kinds = [l.kind for l in locators]
+        kinds = [loc.kind for loc in locators]
 
         self.assertIn("role", kinds)
         self.assertIn("placeholder", kinds)
@@ -69,10 +77,10 @@ class TestPhase2Locators(unittest.TestCase):
             "accessible_name": "Send"
         }
         locators = build_locators_for_element(elem)
-        kinds = [l.kind for l in locators]
+        kinds = [loc.kind for loc in locators]
         self.assertIn("testid", kinds)
 
-        testid_loc = next(l for l in locators if l.kind == "testid")
+        testid_loc = next(loc for loc in locators if loc.kind == "testid")
         self.assertEqual(testid_loc.value, "submit-action-btn")
 
     def test_trim_dom_context(self):

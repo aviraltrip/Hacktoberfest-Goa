@@ -13,13 +13,11 @@ import sys
 import uuid
 import asyncio
 import threading
-from typing import Optional, Callable, Any
-from pathlib import Path
+from typing import Optional, Any
 
 from playwright.async_api import async_playwright, Playwright, Browser, BrowserContext, Page
 
 from app.config import (
-    SHOTS_DIR,
     NETWORK_IDLE_TIMEOUT_MS,
     POST_ACTION_SETTLE_MS
 )
@@ -92,7 +90,7 @@ class PlaywrightRecorder:
             raw_png = await self._page.screenshot(type="png", full_page=False, timeout=3000)
             compressed_jpeg = resize_and_compress_image(raw_png)
             filename = f"{self.recording_id}_step_{self._step_counter}_{suffix}.jpg"
-            saved_path = save_screenshot_bytes(compressed_jpeg, filename)
+            save_screenshot_bytes(compressed_jpeg, filename)
             return f"/static/shots/{filename}"
         except Exception as e:
             print(f"[Recorder] Screenshot error: {e}")

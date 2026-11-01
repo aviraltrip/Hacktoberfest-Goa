@@ -6,12 +6,9 @@ so Gemma 4 can select target elements visually without fragile pixel guessing.
 """
 
 import re
-import json
-from typing import Optional, Any
 from rank_bm25 import BM25Okapi
 from playwright.async_api import Page
 
-from app.config import SHOTS_DIR
 from app.imaging import resize_and_compress_image, save_screenshot_bytes
 from app.models import CandidateElement
 

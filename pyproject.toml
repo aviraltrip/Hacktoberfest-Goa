@@ -3,3 +3,7 @@ extraPaths = ["backend"]
 
 [tool.ruff]
 src = ["backend", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E402", "E501"]
