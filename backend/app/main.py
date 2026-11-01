@@ -40,7 +40,6 @@ from app.exporter import export_standalone_script
 from app.nodes.save import persist_run_results_to_sqlite
 
 
-# In-memory session registries
 active_recorders: dict[str, PlaywrightRecorder] = {}
 completed_recordings: dict[str, list[Step]] = {}
 active_compilations: dict[str, dict[str, Any]] = {}
@@ -52,7 +51,6 @@ async def lifespan(app: FastAPI):
     """Application lifespan management."""
     print(f"[DemoToSkill] Backend running on port {BACKEND_PORT}")
     yield
-    # Cleanup any active recorders on shutdown
     for rec in list(active_recorders.values()):
         try:
             await rec.stop()
@@ -68,7 +66,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for frontend dev server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -77,18 +74,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve generated screenshot images statically
 app.mount("/static/shots", StaticFiles(directory=str(SHOTS_DIR)), name="shots")
 
-# Serve embedded demo target application directly on /demo
 DEMO_APP_DIR = ROOT_DIR / "demo_app"
 if DEMO_APP_DIR.exists():
     app.mount("/demo", StaticFiles(directory=str(DEMO_APP_DIR), html=True), name="demo")
 
 
-# ---------------------------------------------------------------------------
-# Request / Response Schemas
-# ---------------------------------------------------------------------------
 
 class RecordStartRequest(BaseModel):
     start_url: str
@@ -115,9 +107,6 @@ class RunApproveHealRequest(BaseModel):
     override_choice: Optional[int] = None
 
 
-# ---------------------------------------------------------------------------
-# Health & Telemetry Endpoints
-# ---------------------------------------------------------------------------
 
 @app.get("/api/health")
 async def health_check():
@@ -131,9 +120,6 @@ async def get_gemma_calls(limit: int = 50):
     return call_logger.get_recent_calls(limit=limit)
 
 
-# ---------------------------------------------------------------------------
-# Recording Endpoints
-# ---------------------------------------------------------------------------
 
 @app.post("/api/record/start")
 async def start_recording(req: RecordStartRequest):
@@ -215,9 +201,6 @@ async def stream_record_events(request: Request, id: str = Query(..., descriptio
     )
 
 
-# ---------------------------------------------------------------------------
-# Compilation Endpoints & Thread Worker
-# ---------------------------------------------------------------------------
 
 def _run_compile_thread_worker(compile_id: str, graph: Any, config: dict, initial_state: dict, event_queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
     """Executes the compile graph synchronously inside a worker thread to ensure complete interrupt compatibility."""
@@ -381,7 +364,6 @@ async def stream_compile_events(request: Request, id: str):
         try:
             yield f"data: {json.dumps({'type': 'connected', 'compile_id': id, 'status': session['status']})}\n\n"
             
-            # Immediately replay current state if graph is already paused at interrupt or completed
             if session.get("status") == "review_pending":
                 try:
                     state_snapshot = session["graph"].get_state(session["config"])
@@ -483,9 +465,6 @@ async def approve_compilation(id: str, req: CompileApproveRequest):
     }
 
 
-# ---------------------------------------------------------------------------
-# Execution (Run) Endpoints
-# ---------------------------------------------------------------------------
 
 async def _run_batch_worker(run_id: str, spec: WorkflowSpec, rows: list[dict[str, Any]], headed: bool, event_queue: asyncio.Queue):
     """Executes batch workflow runs asynchronously while broadcasting row/step progress to SSE."""
@@ -517,7 +496,6 @@ async def _run_batch_worker(run_id: str, spec: WorkflowSpec, rows: list[dict[str
         all_ok = all(r.success for r in results)
         session["status"] = "completed" if all_ok else "failed"
 
-        # Persist run results to SQLite
         persist_run_results_to_sqlite(
             run_id=run_id,
             spec_id=spec.id or "custom",
@@ -693,9 +671,6 @@ async def get_run(id: str):
     raise HTTPException(status_code=404, detail=f"Run record {id} not found")
 
 
-# ---------------------------------------------------------------------------
-# Workflow Spec Inspection & Export Endpoints
-# ---------------------------------------------------------------------------
 
 @app.get("/api/specs")
 async def list_specs():
@@ -749,9 +724,6 @@ async def export_spec_script(id: str):
     }
 
 
-# ---------------------------------------------------------------------------
-# Self-Healing Telemetry & Ablation Endpoints
-# ---------------------------------------------------------------------------
 
 @app.get("/api/heal/memory")
 async def get_heal_memory(limit: int = 50):
