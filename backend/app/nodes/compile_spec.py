@@ -26,16 +26,23 @@ def generate_trial_rows(variables: list[Variable]) -> list[dict[str, Any]]:
     row2: dict[str, Any] = {}
 
     for var in variables:
-        if var.type == "select" and var.options:
-            row1[var.name] = var.options[0]
-            row2[var.name] = var.options[1] if len(var.options) > 1 else var.options[0]
+        if var.type == "select":
+            if var.options and len(var.options) > 1:
+                row1[var.name] = var.options[0]
+                row2[var.name] = var.options[1]
+            elif var.options:
+                row1[var.name] = var.options[0]
+                row2[var.name] = var.options[0]
+            else:
+                row1[var.name] = var.example or ""
+                row2[var.name] = var.example or ""
         elif var.type == "number":
-            base = int(var.example) if var.example.isdigit() else 2026
+            base = int(var.example) if var.example and str(var.example).isdigit() else 2026
             row1[var.name] = base
             row2[var.name] = base + 1
         else:
             row1[var.name] = var.example or "Alice Smith"
-            row2[var.name] = f"Test {var.example or 'Bob Jones'}"
+            row2[var.name] = f"Test {var.example}" if var.example else "Test Bob"
 
     return [row1, row2]
 

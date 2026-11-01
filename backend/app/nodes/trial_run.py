@@ -27,9 +27,6 @@ def trial_run_node(state: CompileState) -> dict[str, Any]:
     LangGraph Compile Graph node: 'trial_run'.
     Executes the spec across trial_rows.
     """
-    if state.get("results"):
-        return {"results": state["results"], "status": "testing"}
-
     spec: WorkflowSpec = state.get("spec")
     trial_rows: list[dict[str, Any]] = state.get("trial_rows") or []
     rec_id = state.get("recording_id", "draft")
@@ -38,7 +35,7 @@ def trial_run_node(state: CompileState) -> dict[str, Any]:
         return {"status": "failed", "error": "No compiled spec found for trial run"}
 
     if not trial_rows:
-        trial_rows = [{}]
+        trial_rows = [{v.name: v.example for v in spec.variables if v.name and v.example}] if spec.variables else [{}]
 
     try:
         import concurrent.futures
