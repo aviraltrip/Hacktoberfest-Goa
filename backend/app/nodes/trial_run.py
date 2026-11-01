@@ -27,7 +27,6 @@ def trial_run_node(state: CompileState) -> dict[str, Any]:
     LangGraph Compile Graph node: 'trial_run'.
     Executes the spec across trial_rows.
     """
-    # If trial results are already supplied (e.g. mock or pre-evaluated), pass through
     if state.get("results"):
         return {"results": state["results"], "status": "testing"}
 
@@ -38,7 +37,6 @@ def trial_run_node(state: CompileState) -> dict[str, Any]:
     if not spec:
         return {"status": "failed", "error": "No compiled spec found for trial run"}
 
-    # If no trial rows, use empty row
     if not trial_rows:
         trial_rows = [{}]
 

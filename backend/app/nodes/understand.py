@@ -209,7 +209,6 @@ async def _async_understand_pipeline(state: CompileState) -> dict[str, Any]:
     processed_steps: list[Step] = []
     detected_variables: dict[str, Variable] = {}
 
-    # Separate steps: immediately resolve static actions (goto, click without value)
     steps_needing_analysis: list[Step] = []
     for s in raw_steps:
         if s.action == "goto":
@@ -224,7 +223,6 @@ async def _async_understand_pipeline(state: CompileState) -> dict[str, Any]:
             steps_needing_analysis.append(s)
             processed_steps.append(s)
 
-    # Concurrently analyze value/input steps (fill, select) to minimize latency
     if steps_needing_analysis:
         tasks = [understand_single_step(step=s) for s in steps_needing_analysis]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -275,7 +273,6 @@ def understand_node(state: CompileState) -> dict[str, Any]:
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            # If called inside an active loop (e.g. from an async runner task), create task or new loop
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, _async_understand_pipeline(state))

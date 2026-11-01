@@ -50,28 +50,22 @@ async def verify_single_row(
     """
     llm = client or gemma_client
 
-    # If any execution step failed, row fails immediately
     steps_failed = [s for s in row.steps if not s.ok]
     if steps_failed:
         row.success = False
         row.evidence = f"Execution failed on step {steps_failed[0].idx}: {steps_failed[0].error}"
         return row
 
-    # --- Layer 1: Deterministic verification ---
     deterministic_passed = True
     deterministic_notes = []
 
-    # If text_visible is specified, check against step outputs or DOM evidence
     if spec.success.text_visible:
-        # Check if text is mentioned in step errors or results
         text_target = spec.success.text_visible.lower()
-        # In a real run, text_visible is confirmed on the page DOM by runner
         deterministic_notes.append(f"Expected text '{spec.success.text_visible}'")
 
     if spec.success.url_contains:
         deterministic_notes.append(f"Expected URL to contain '{spec.success.url_contains}'")
 
-    # --- Layer 2: Multimodal Visual verification with Gemma 4 ---
     shot_path = _resolve_shot_path(row.final_shot)
     visual_passed = False
     evidence_text = ""
@@ -90,15 +84,12 @@ async def verify_single_row(
             evidence_text = output.evidence
         except Exception as e:
             print(f"[VerifyNode] Visual verification fallback for row {row.row_idx}: {e}")
-            # Fallback if model or API key is unavailable
             visual_passed = deterministic_passed
             evidence_text = f"Deterministic checks passed (visual check fallback: {str(e)})"
     else:
-        # No screenshot or visual criteria provided
         visual_passed = deterministic_passed
         evidence_text = "All steps executed cleanly (deterministic pass)"
 
-    # Final verdict: Row passes only if deterministic checks pass and Gemma agrees
     final_verdict = deterministic_passed and visual_passed
     row.success = final_verdict
     row.evidence = evidence_text
@@ -134,7 +125,6 @@ def verify_node(state: CompileState) -> dict[str, Any]:
     except RuntimeError:
         evaluated = asyncio.run(_run_verifications())
 
-    # Check overall pass status
     all_passed = all(r.success for r in evaluated)
     return {
         "results": evaluated,

@@ -126,7 +126,6 @@ def format_heal_prompt(
     prompt = prompt.replace("{{action_target_type}}", action_targets.get(action, "Interactive UI element"))
     prompt = prompt.replace("{{candidates_table}}", candidates_table)
 
-    # Format conditional heal hints
     if heal_hints:
         hints_text = "\n".join(f"- {h}" for h in heal_hints)
         prompt = re.sub(r"\{\{#if heal_hints\}\}(.*?)\{\{/if\}\}", r"\1", prompt, flags=re.DOTALL)
@@ -150,19 +149,16 @@ async def repair_step_multimodal(
     """
     llm = client or gemma_client
 
-    # 1. Extract live interactive elements
     candidates = await extract_live_candidates(page)
     if not candidates:
         print("[RepairNode] No live candidates extracted from DOM.")
         return None
 
-    # 2. Rank candidates with BM25 against step intent and previous locators
     query = f"{step.intent} {' '.join(l.value for l in step.locators)}"
     top_candidates = rank_candidates_bm25(candidates, query_text=query, top_k=8)
     if not top_candidates:
         return None
 
-    # 3. Inject Set-of-Marks overlay [1..8], take snapshot, remove overlay
     marked_shot = await capture_set_of_marks_screenshot(
         page=page,
         candidates=top_candidates,
@@ -170,10 +166,8 @@ async def repair_step_multimodal(
         step_idx=step.idx
     )
 
-    # 4. Lookup past heal hints from SQLite FTS5 memory
     hints = heal_memory.lookup_hints(site=site_url, intent=step.intent, limit=2)
 
-    # 5. Format prompt
     cand_table = format_candidates_table(top_candidates)
     prompt = format_heal_prompt(
         step_intent=step.intent,
@@ -182,7 +176,6 @@ async def repair_step_multimodal(
         heal_hints=hints
     )
 
-    # Collect images: marked screenshot first, then original shot_before
     images: list[Path] = []
     marked_path = _resolve_image_path(marked_shot)
     orig_path = _resolve_image_path(original_shot or step.shot_before)
@@ -192,7 +185,6 @@ async def repair_step_multimodal(
         images.append(orig_path)
 
     try:
-        # Use GEMMA_REPAIR_MODEL with high multimodal reasoning
         heal_choice: HealChoiceOutput = await llm.generate_structured(
             prompt=prompt,
             schema_class=HealChoiceOutput,
@@ -207,13 +199,11 @@ async def repair_step_multimodal(
             print(f"[RepairNode] Gemma determined no candidate matches step {step.idx}.")
             return None
 
-        # Find matching candidate element
         chosen_cand = next((c for c in top_candidates if c.id == choice_idx), None)
         if not chosen_cand:
             print(f"[RepairNode] Gemma selected invalid box #{choice_idx}.")
             return None
 
-        # 6. Role Compatibility Validation
         if not validate_role_compatibility(step.action, chosen_cand):
             print(
                 f"[RepairNode] Role compatibility check failed for box #{choice_idx} "
@@ -221,24 +211,19 @@ async def repair_step_multimodal(
             )
             return None
 
-        # 7. Synthesize fresh locator candidate
         new_loc = synthesize_new_locator(chosen_cand)
 
-        # 8. Exactly-One Verification on live DOM
         try:
             pw_loc = to_playwright_locator(page, new_loc)
             count = await pw_loc.count()
             if count != 1:
                 print(f"[RepairNode] Synthesized locator '{new_loc.value}' count is {count} (expected 1).")
-                # Fallback to tag + class or tag selector
                 new_loc = Locator(kind="css", value=f"{chosen_cand.tag}")
         except Exception as e:
             print(f"[RepairNode] Locator count error: {e}")
 
-        # 9. Prepend new locator to step definition
         step.locators.insert(0, new_loc)
 
-        # 10. Persist repair to SQLite FTS5 heal memory
         old_val = step.locators[1].value if len(step.locators) > 1 else "unknown"
         heal_memory.save_heal(
             site=site_url,
