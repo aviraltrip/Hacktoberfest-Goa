@@ -39,7 +39,6 @@ def interpolate_template(template_str: Optional[str], row_data: dict[str, Any]) 
         return None
 
     result = str(template_str)
-    # Find all {{var_name}} matches
     matches = re.findall(r"\{\{([a-zA-Z0-9_\-\.]+)\}\}", result)
     for var_name in matches:
         if var_name in row_data:
@@ -135,7 +134,6 @@ class WorkflowRunner:
         action = step.action
         interpolated_val = interpolate_template(step.value, row_data)
 
-        # 1. Action: Navigation
         if action == "goto":
             url = interpolated_val or step.value
             try:
@@ -146,7 +144,6 @@ class WorkflowRunner:
             except Exception as e:
                 return StepResult(idx=step.idx, ok=False, error=f"Navigation failed: {str(e)}")
 
-        # 2. Resolve target element using Exactly-One Rule
         target, winning_loc = await resolve_locator(page, step.locators)
         if not target:
             return StepResult(
@@ -155,7 +152,6 @@ class WorkflowRunner:
                 error=f"Step {step.idx} ({step.intent}): Could not resolve any locator to exactly one element"
             )
 
-        # 3. Apply action
         try:
             if action == "fill":
                 await target.fill(interpolated_val or "", timeout=5000)
@@ -170,7 +166,6 @@ class WorkflowRunner:
             else:
                 return StepResult(idx=step.idx, ok=False, error=f"Unsupported action: {action}")
 
-            # Settle after interaction
             await self._settle_page(page)
             duration = (time.time() - t0) * 1000
             return StepResult(
@@ -202,7 +197,6 @@ class WorkflowRunner:
         Context isolation: creates a clean BrowserContext and Page.
         Halts the row if any step fails.
         """
-        # Fresh isolated context per row
         context = await browser.new_context(
             viewport={"width": 1280, "height": 800},
             ignore_https_errors=True
@@ -214,7 +208,6 @@ class WorkflowRunner:
         row_success = True
 
         try:
-            # Navigate to workflow start URL if 1st step isn't goto
             if not spec.steps or spec.steps[0].action != "goto":
                 await page.goto(spec.start_url)
                 await self._settle_page(page)
@@ -226,12 +219,10 @@ class WorkflowRunner:
                 if on_step_progress:
                     await on_step_progress(row_idx, step.idx, res)
 
-                # Stop row immediately upon step failure
                 if not res.ok:
                     row_success = False
                     break
 
-            # Capture final screenshot
             final_shot = await self._capture_final_shot(page, row_idx)
 
         except Exception as e:

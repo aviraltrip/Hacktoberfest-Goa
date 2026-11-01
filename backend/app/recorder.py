@@ -81,7 +81,6 @@ class PlaywrightRecorder:
         try:
             await self._page.wait_for_load_state("networkidle", timeout=NETWORK_IDLE_TIMEOUT_MS)
         except Exception:
-            # Networkidle timeout is expected on pages with polling or long-lived streams
             pass
         await asyncio.sleep(POST_ACTION_SETTLE_MS / 1000.0)
 
@@ -94,7 +93,6 @@ class PlaywrightRecorder:
             compressed_jpeg = resize_and_compress_image(raw_png)
             filename = f"{self.recording_id}_step_{self._step_counter}_{suffix}.jpg"
             saved_path = save_screenshot_bytes(compressed_jpeg, filename)
-            # Return relative static URL for frontend
             return f"/static/shots/{filename}"
         except Exception as e:
             print(f"[Recorder] Screenshot error: {e}")
@@ -109,13 +107,10 @@ class PlaywrightRecorder:
             self._step_counter += 1
             action = event_data.get("action")
 
-            # Capture shot_before
             shot_before = await self._capture_screenshot("before")
 
-            # Allow browser action to apply and settle
             await self._settle_page()
 
-            # Capture shot_after
             shot_after = await self._capture_screenshot("after")
 
             recorded_event = {
@@ -154,7 +149,6 @@ class PlaywrightRecorder:
                 "target_summary": step_summary
             }
 
-            # Broadcast event for live SSE streaming
             await self._broadcast({
                 "type": "step_recorded",
                 "step": step_dict,
@@ -218,7 +212,6 @@ class PlaywrightRecorder:
                             )
                         raise RuntimeError(f"Navigation failed: {err_str}")
 
-                    # Record initial navigation step
                     self._step_counter += 1
                     initial_shot = await self._capture_screenshot("after")
                     nav_event = {
@@ -257,7 +250,6 @@ class PlaywrightRecorder:
         self._thread = threading.Thread(target=_thread_target, daemon=True)
         self._thread.start()
 
-        # Await startup without blocking the calling async loop
         while not ready_evt.is_set():
             await asyncio.sleep(0.05)
 
@@ -292,9 +284,7 @@ class PlaywrightRecorder:
             while not stopped_evt.is_set():
                 await asyncio.sleep(0.05)
 
-        # Broadcast completion
         await self._broadcast({"type": "recording_stopped", "recording_id": self.recording_id})
 
-        # Coalesce consecutive input keystrokes into final fill steps
         final_steps = coalesce_recorded_events(self.raw_events)
         return final_steps
