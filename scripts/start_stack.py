@@ -8,11 +8,10 @@ Launches all three services concurrently:
 Press Ctrl+C to cleanly stop all processes.
 """
 
-import sys
 import os
 import subprocess
+import sys
 import time
-import signal
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):

@@ -8,42 +8,37 @@ Tests:
 5. FastAPI compilation, spec inspection, and export endpoints.
 """
 
+import asyncio
 import sys
 import unittest
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
+
 from fastapi.testclient import TestClient
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
+from langgraph.types import Command
+
+from app.exporter import export_standalone_script
+from app.graphs import build_compile_graph
+from app.main import active_compilations, app, completed_recordings
 from app.models import (
-    Step,
     Locator,
-    Variable,
-    SuccessCondition,
-    WorkflowSpec,
     RowResult,
+    Step,
+    SuccessCondition,
     UnderstandStepOutput,
-    UnderstandWorkflowOutput
+    Variable,
+    WorkflowSpec,
 )
+from app.nodes.compile_spec import generate_trial_rows
 from app.nodes.understand import (
     format_step_prompt,
     format_workflow_prompt,
     understand_single_step,
-    understand_workflow_synthesis
 )
-from app.nodes.compile_spec import (
-    generate_trial_rows,
-    compile_spec_node,
-    save_spec_to_file
-)
-from app.exporter import export_standalone_script
-from app.graphs import build_compile_graph
-from app.main import app, completed_recordings, active_compilations
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.types import Command
 
 
 class TestPhase3Understanding(unittest.TestCase):

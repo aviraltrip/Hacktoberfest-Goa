@@ -11,31 +11,30 @@ Tests:
 import sys
 import unittest
 from pathlib import Path
+
 from PIL import Image
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
-from app.models import (
-    Locator,
-    Step,
-    Variable,
-    SuccessCondition,
-    WorkflowSpec,
-    CandidateElement,
-    HealProposal,
-    UnderstandStepOutput,
-    GemmaCallLog
-)
-from app.imaging import (
-    resize_and_compress_image,
-    encode_image_to_base64,
-    decode_image_from_base64,
-    compute_image_hash
-)
-from app.llm import extract_json_payload
 from app.cache import ResponseCache
 from app.call_logger import GemmaCallLogger
+from app.imaging import (
+    compute_image_hash,
+    decode_image_from_base64,
+    encode_image_to_base64,
+    resize_and_compress_image,
+)
+from app.llm import extract_json_payload
+from app.models import (
+    CandidateElement,
+    HealProposal,
+    Locator,
+    Step,
+    SuccessCondition,
+    Variable,
+    WorkflowSpec,
+)
 
 
 class TestPhase1Models(unittest.TestCase):

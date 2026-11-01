@@ -10,6 +10,7 @@ Tests:
 import sys
 import unittest
 from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
@@ -19,10 +20,8 @@ from app.locators import (
     build_locators_for_element,
     coalesce_recorded_events,
     trim_dom_context,
-    sanitize_value
 )
-from app.main import app, active_recorders, completed_recordings
-from app.models import Step, Locator
+from app.main import app
 
 
 class TestPhase2Locators(unittest.TestCase):

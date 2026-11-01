@@ -13,7 +13,6 @@ Validates the complete autonomous lifecycle:
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = ROOT_DIR / "backend"
@@ -22,40 +21,34 @@ for p in (str(BACKEND_DIR), str(ROOT_DIR)):
         sys.path.insert(0, p)
 
 try:
-    from app.models import (
-        Locator,
-        Step,
-        Variable,
-        SuccessCondition,
-        WorkflowSpec,
-        CandidateElement,
-        HealProposal,
-        RowResult,
-        StepResult,
-        CompileState,
-        RunState
-    )
-    from app.graphs import build_compile_graph, build_run_graph
-    from app.nodes.repair import validate_role_compatibility, synthesize_new_locator
     from app.exporter import export_standalone_script
-except ImportError:
-    from backend.app.models import (
-        Locator,
-        Step,
-        Variable,
-        SuccessCondition,
-        WorkflowSpec,
+    from app.graphs import build_compile_graph, build_run_graph
+    from app.models import (
         CandidateElement,
         HealProposal,
+        Locator,
         RowResult,
+        Step,
         StepResult,
-        CompileState,
-        RunState
+        WorkflowSpec,
     )
-    from backend.app.graphs import build_compile_graph, build_run_graph
-    from backend.app.nodes.repair import validate_role_compatibility, synthesize_new_locator
+    from app.nodes.repair import synthesize_new_locator, validate_role_compatibility
+except ImportError:
     from backend.app.exporter import export_standalone_script
-from langgraph.checkpoint.memory import MemorySaver
+    from backend.app.graphs import build_compile_graph, build_run_graph
+    from backend.app.models import (
+        CandidateElement,
+        HealProposal,
+        Locator,
+        RowResult,
+        Step,
+        StepResult,
+        WorkflowSpec,
+    )
+    from backend.app.nodes.repair import (
+        synthesize_new_locator,
+        validate_role_compatibility,
+    )
 from langgraph.types import Command
 
 

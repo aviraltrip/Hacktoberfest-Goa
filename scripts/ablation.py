@@ -7,9 +7,9 @@ Compares self-healing recovery rates across 6 mutation categories:
 Demonstrates to hackathon judges why Gemma 4 is indispensable.
 """
 
+import json
 import os
 import sys
-import json
 import time
 
 if hasattr(sys.stdout, "reconfigure"):

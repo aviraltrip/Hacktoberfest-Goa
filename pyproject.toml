@@ -1,0 +1,5 @@
+[tool.pyright]
+extraPaths = ["backend"]
+
+[tool.ruff]
+src = ["backend", "tests", "scripts"]

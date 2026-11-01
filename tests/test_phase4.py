@@ -7,11 +7,12 @@ Tests:
 4. FastAPI batch execution endpoints and run telemetry.
 """
 
+import asyncio
 import sys
 import unittest
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+
 from fastapi.testclient import TestClient
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -21,43 +22,36 @@ for p in (str(BACKEND_DIR), str(ROOT_DIR)):
         sys.path.insert(0, p)
 
 try:
+    from app.main import active_runs, app
     from app.models import (
         Locator,
-        Step,
-        Variable,
-        SuccessCondition,
-        WorkflowSpec,
-        StepResult,
         RowResult,
-        VerifyVisualOutput
+        Step,
+        StepResult,
+        SuccessCondition,
+        Variable,
+        WorkflowSpec,
     )
-    from app.runner import (
-        interpolate_template,
-        resolve_locator,
-        to_playwright_locator
-    )
-    from app.nodes.verify import verify_single_row, format_verify_prompt
     from app.nodes.compile_spec import save_spec_to_file
-    from app.main import app, active_runs
+    from app.nodes.verify import format_verify_prompt, verify_single_row
+    from app.runner import interpolate_template, resolve_locator
 except ImportError:
+    from backend.app.main import active_runs, app
     from backend.app.models import (
         Locator,
-        Step,
-        Variable,
-        SuccessCondition,
-        WorkflowSpec,
-        StepResult,
         RowResult,
-        VerifyVisualOutput
+        Step,
+        StepResult,
+        SuccessCondition,
+        Variable,
+        WorkflowSpec,
     )
+    from backend.app.nodes.compile_spec import save_spec_to_file
+    from backend.app.nodes.verify import format_verify_prompt, verify_single_row
     from backend.app.runner import (
         interpolate_template,
         resolve_locator,
-        to_playwright_locator
     )
-    from backend.app.nodes.verify import verify_single_row, format_verify_prompt
-    from backend.app.nodes.compile_spec import save_spec_to_file
-    from backend.app.main import app, active_runs
 
 
 class TestPhase4Runner(unittest.TestCase):
