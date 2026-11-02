@@ -16,13 +16,12 @@ export default function RecordPanel({ onRecordingComplete }: RecordPanelProps) {
   const [startUrl, setStartUrl] = useState('http://localhost:8080/');
   const [headed, setHeaded] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingId, setRecordingId] = useState<string | null>(null);
+  const recordingIdRef = useRef<string | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<any>(null);
 
   useEffect(() => {
@@ -37,33 +36,43 @@ export default function RecordPanel({ onRecordingComplete }: RecordPanelProps) {
     return () => clearInterval(timerRef.current);
   }, [isRecording]);
 
+  useEffect(() => {
+    if (!isRecording) return;
+    const recId = recordingIdRef.current;
+    if (!recId) return;
+
+    const es = new EventSource(`/api/record/events?id=${recId}`);
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'step_recorded' || data.type === 'step') {
+          const newStep = data.step || data;
+          setSteps((prev) => [...prev, newStep]);
+        }
+      } catch (e) {
+        console.error('Error parsing SSE event:', e);
+      }
+    };
+    es.onerror = (e) => {
+      console.warn('SSE stream closed or error:', e);
+      es.close();
+    };
+    return () => {
+      es.close();
+    };
+  }, [isRecording]);
+
   const handleStart = async () => {
     setIsLoading(true);
     setError(null);
     setSteps([]);
     try {
       const res = await startRecording(startUrl, headed);
-      setRecordingId(res.recording_id);
+      recordingIdRef.current = res.recording_id;
       setIsRecording(true);
 
       
-      const es = new EventSource(`/api/record/events?id=${res.recording_id}`);
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'step_recorded' || data.type === 'step') {
-            const newStep = data.step || data;
-            setSteps((prev) => [...prev, newStep]);
-          }
-        } catch (e) {
-          console.error('Error parsing SSE event:', e);
-        }
-      };
-      es.onerror = (e) => {
-        console.warn('SSE stream closed or error:', e);
-        es.close();
-      };
-      eventSourceRef.current = es;
+      
     } catch (err: any) {
       let msg = err.message || 'Failed to start recording';
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg === 'Failed to start recording') {
@@ -76,16 +85,13 @@ export default function RecordPanel({ onRecordingComplete }: RecordPanelProps) {
   };
 
   const handleStop = async () => {
-    if (!recordingId) return;
+    const activeRecId = recordingIdRef.current;
+    if (!activeRecId) return;
     setIsLoading(true);
     try {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-      const res = await stopRecording(recordingId);
+      const res = await stopRecording(activeRecId);
       setIsRecording(false);
-      onRecordingComplete(recordingId, res.steps || res.raw_steps || steps);
+      onRecordingComplete(activeRecId, res.steps || res.raw_steps || steps);
     } catch (err: any) {
       setError(err.message || 'Failed to stop recording');
     } finally {
@@ -105,16 +111,18 @@ export default function RecordPanel({ onRecordingComplete }: RecordPanelProps) {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex-1 space-y-2">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <label htmlFor="target-url-input" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
               Target Web Application URL
             </label>
             <div className="flex items-center gap-2">
               <input
+                id="target-url-input"
                 type="text"
                 value={startUrl}
                 disabled={isRecording}
                 onChange={(e) => setStartUrl(e.target.value)}
                 placeholder="http://localhost:8080/"
+                aria-label="Target Web Application URL"
                 className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
               />
               <button
@@ -166,7 +174,7 @@ export default function RecordPanel({ onRecordingComplete }: RecordPanelProps) {
               <button
                 onClick={handleStart}
                 disabled={isLoading}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-colors disabled:opacity-50"
               >
                 <Circle className="w-4 h-4 fill-red-500 text-red-500 animate-pulse" />
                 Start Recording
@@ -180,7 +188,7 @@ export default function RecordPanel({ onRecordingComplete }: RecordPanelProps) {
                 <button
                   onClick={handleStop}
                   disabled={isLoading}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm bg-red-600 text-white hover:bg-red-500 shadow-lg shadow-red-600/30 transition-all disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm bg-red-600 text-white hover:bg-red-500 shadow-lg shadow-red-600/30 transition-colors disabled:opacity-50"
                 >
                   <Square className="w-4 h-4 fill-current" />
                   Stop Recording
@@ -224,9 +232,9 @@ export default function RecordPanel({ onRecordingComplete }: RecordPanelProps) {
           </div>
         ) : (
           <div className="space-y-3">
-            {steps.map((step, idx) => (
+            {steps.map((step) => (
               <div
-                key={step.idx || idx}
+                key={`rec-step-${step.idx}`}
                 className="bg-slate-900 border border-slate-800 rounded-xl p-4 hover:border-slate-700 transition group"
               >
                 <div className="flex items-start justify-between gap-4">

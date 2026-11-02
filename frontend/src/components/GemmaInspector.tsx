@@ -21,28 +21,47 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
   const [isLoading, setIsLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const fetchCalls = async () => {
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+
+    const loadCalls = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getGemmaCalls();
+        if (isMounted) {
+          setCalls(data);
+          setExpandedId(prev => (prev || (data.length > 0 ? data[0].id : null)));
+        }
+      } catch (e) {
+        console.error('Failed to load Gemma calls', e);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadCalls();
+    const interval = setInterval(loadCalls, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isOpen]);
+
+  const handleManualRefresh = async () => {
     setIsLoading(true);
     try {
       const data = await getGemmaCalls();
       setCalls(data);
-      if (data.length > 0 && !expandedId) {
-        setExpandedId(data[0].id);
-      }
+      setExpandedId(prev => (prev || (data.length > 0 ? data[0].id : null)));
     } catch (e) {
       console.error('Failed to load Gemma calls', e);
     } finally {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchCalls();
-      const interval = setInterval(fetchCalls, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -77,16 +96,18 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
 
           <div className="flex items-center gap-2">
             <button
-              onClick={fetchCalls}
+              onClick={handleManualRefresh}
               disabled={isLoading}
               className="p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-700 transition"
               title="Refresh logs"
+              aria-label="Refresh telemetry logs"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
             <button
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-700 transition"
+              aria-label="Close inspector drawer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -128,9 +149,17 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
                   key={call.id}
                   className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition"
                 >
-                  <div
+                  <button
+                    type="button"
                     onClick={() => setExpandedId(isExpanded ? null : call.id)}
-                    className="p-3.5 flex items-center justify-between cursor-pointer select-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setExpandedId(isExpanded ? null : call.id);
+                      }
+                    }}
+                    aria-expanded={isExpanded}
+                    className="w-full p-3.5 flex items-center justify-between cursor-pointer select-none text-left focus:outline-none focus:bg-slate-900/60"
                   >
                     <div className="flex items-center gap-2.5">
                       <span className={`w-2 h-2 rounded-full ${call.status === 'success' ? 'bg-emerald-400' : 'bg-red-400'}`} />
@@ -155,7 +184,7 @@ export default function GemmaInspector({ isOpen, onClose }: GemmaInspectorProps)
                         <ChevronDown className="w-4 h-4 text-slate-400" />
                       )}
                     </div>
-                  </div>
+                  </button>
 
                   {isExpanded && (
                     <div className="p-4 border-t border-slate-800/80 bg-slate-900/60 space-y-3 text-xs">

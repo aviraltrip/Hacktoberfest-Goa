@@ -31,16 +31,30 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
   const [rows, setRows] = useState<Record<string, any>[]>(DEFAULT_ROWS);
   const [headed, setHeaded] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const activeRunIdRef = useRef<string | null>(null);
   const [results, setResults] = useState<RowResult[]>([]);
   const [currentStepIdx, setCurrentStepIdx] = useState<{ rowIdx: number; stepIdx: number } | null>(null);
   const [previewShot, setPreviewShot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    loadSpecs();
+    let isMounted = true;
+    const fetchAllSpecs = async () => {
+      try {
+        const data = await listSpecs();
+        if (isMounted) {
+          setSpecs(data);
+          setSelectedSpecId(prev => prev || (data.length > 0 ? data[0].id : ''));
+        }
+      } catch (e) {
+        console.error('Failed to load specs', e);
+      }
+    };
+    fetchAllSpecs();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -49,17 +63,46 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
     }
   }, [currentSpec]);
 
-  const loadSpecs = async () => {
-    try {
-      const data = await listSpecs();
-      setSpecs(data);
-      if (data.length > 0 && !selectedSpecId) {
-        setSelectedSpecId(data[0].id);
+  useEffect(() => {
+    if (!isRunning) return;
+    const runId = activeRunIdRef.current;
+    if (!runId) return;
+
+    const es = new EventSource(`/api/run/${runId}/events`);
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'step_start') {
+          setCurrentStepIdx({ rowIdx: data.row_idx, stepIdx: data.step_idx });
+        } else if (data.type === 'row_completed') {
+          setResults(prev => {
+            const existing = prev.filter(r => r.row_idx !== data.row_idx);
+            return [...existing, data.result].sort((a, b) => a.row_idx - b.row_idx);
+          });
+        } else if (data.type === 'heal_required' || data.type === 'heal_proposal') {
+          if (data.proposal) {
+            onHealTriggered(runId, data.proposal);
+          }
+        } else if (data.type === 'heal_approved') {
+          console.log('Heal approved and spec patched. Resuming rows...');
+        } else if (data.type === 'run_completed' || data.status === 'completed') {
+          setIsRunning(false);
+          setCurrentStepIdx(null);
+          es.close();
+        }
+      } catch (e) {
+        console.error('Error parsing run SSE event:', e);
       }
-    } catch (e) {
-      console.error('Failed to load specs', e);
-    }
-  };
+    };
+
+    es.onerror = () => {
+      es.close();
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [isRunning, onHealTriggered]);
 
   const activeSpec = specs.find(s => s.id === selectedSpecId) || currentSpec;
 
@@ -97,44 +140,9 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
 
     try {
       const res = await startWorkflowRun(specId, rows, headed);
-      setActiveRunId(res.run_id);
+      activeRunIdRef.current = res.run_id;
 
-      const es = new EventSource(`/api/run/${res.run_id}/events`);
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'step_start') {
-            setCurrentStepIdx({ rowIdx: data.row_idx, stepIdx: data.step_idx });
-          } else if (data.type === 'row_completed') {
-            setResults(prev => {
-              const existing = prev.filter(r => r.row_idx !== data.row_idx);
-              return [...existing, data.result].sort((a, b) => a.row_idx - b.row_idx);
-            });
-          } else if (data.type === 'heal_required' || data.type === 'heal_proposal') {
-            
-            if (data.proposal) {
-              onHealTriggered(res.run_id, data.proposal);
-            }
-          } else if (data.type === 'heal_approved') {
-            
-            console.log('Heal approved and spec patched. Resuming rows...');
-          } else if (data.type === 'run_completed' || data.status === 'completed') {
-            setIsRunning(false);
-            setCurrentStepIdx(null);
-            es.close();
-          }
-        } catch (e) {
-          console.error('Error parsing run SSE event:', e);
-        }
-      };
-
-      es.onerror = () => {
-        es.close();
-      };
-
-      eventSourceRef.current = es;
-    } catch (err: any) {
+      } catch (err: any) {
       setError(err.message || 'Failed to start workflow execution');
       setIsRunning(false);
     }
@@ -146,11 +154,13 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-2 flex-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <label htmlFor="active-workflow-select" className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Active Workflow Skill
             </label>
             <div className="flex items-center gap-3">
               <select
+                id="active-workflow-select"
+                aria-label="Active Workflow Skill"
                 value={selectedSpecId}
                 disabled={isRunning}
                 onChange={(e) => setSelectedSpecId(e.target.value)}
@@ -251,13 +261,14 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {rows.map((row, rIdx) => (
-                <tr key={rIdx} className="hover:bg-slate-800/20 transition">
+                <tr key={`matrix-row-${rIdx}`} className="hover:bg-slate-800/20 transition">
                   <td className="py-2 px-3 font-mono text-slate-500 font-bold">{rIdx + 1}</td>
                   <td className="py-2 px-3">
                     <input
                       type="text"
                       value={row.fullName || ''}
                       disabled={isRunning}
+                      aria-label={`Full name for row ${rIdx + 1}`}
                       onChange={(e) => handleCellChange(rIdx, 'fullName', e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
@@ -267,6 +278,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
                       type="text"
                       value={row.department || ''}
                       disabled={isRunning}
+                      aria-label={`Department for row ${rIdx + 1}`}
                       onChange={(e) => handleCellChange(rIdx, 'department', e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
@@ -276,6 +288,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
                       type="text"
                       value={row.gradYear || ''}
                       disabled={isRunning}
+                      aria-label={`Graduation year for row ${rIdx + 1}`}
                       onChange={(e) => handleCellChange(rIdx, 'gradYear', e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
@@ -285,6 +298,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
                       type="text"
                       value={row.sop || ''}
                       disabled={isRunning}
+                      aria-label={`Statement of purpose for row ${rIdx + 1}`}
                       onChange={(e) => handleCellChange(rIdx, 'sop', e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
@@ -293,6 +307,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
                     <button
                       onClick={() => handleRemoveRow(rIdx)}
                       disabled={isRunning || rows.length <= 1}
+                      aria-label={`Remove row ${rIdx + 1}`}
                       className="text-slate-500 hover:text-red-400 p-1 transition disabled:opacity-30"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -342,7 +357,7 @@ export default function RunGrid({ currentSpec, onHealTriggered }: RunGridProps) 
                 const isCurrentRow = currentStepIdx?.rowIdx === rIdx + 1;
 
                 return (
-                  <tr key={rIdx} className="hover:bg-slate-800/20 transition">
+                  <tr key={`exec-row-${rIdx}`} className="hover:bg-slate-800/20 transition">
                     <td className="py-3 px-3 font-mono font-bold text-slate-400">
                       Row {rIdx + 1}
                     </td>

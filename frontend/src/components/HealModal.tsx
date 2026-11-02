@@ -80,6 +80,7 @@ export default function HealModal({
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+            aria-label="Close self-healing modal"
           >
             <X className="w-4 h-4" />
           </button>
@@ -165,9 +166,9 @@ export default function HealModal({
 
           
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Confirm or Override Candidate Choice
-            </label>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
                 <button

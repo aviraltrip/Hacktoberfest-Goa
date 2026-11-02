@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, 
   Check, 
@@ -43,10 +43,98 @@ export default function StepEditor({
     };
   }, [isCompiling]);
   const [compileId, setCompileId] = useState<string | null>(null);
+  const compileIdRef = useRef<string | null>(null);
+  const detectedVariablesRef = useRef<Variable[]>([]);
   const [reviewRequired, setReviewRequired] = useState(false);
-  const [detectedVariables, setDetectedVariables] = useState<Variable[]>([]);
   const [selectedShot, setSelectedShot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isCompiling || !compileId) return;
+
+    let isDone = false;
+
+    const processInterrupt = (payload: any) => {
+      isDone = true;
+      setReviewRequired(true);
+      setIsCompiling(false);
+      setCompileStatus('Gemma 4 parameter proposal ready for your confirmation.');
+      if (payload?.variables) {
+        detectedVariablesRef.current = payload.variables;
+      }
+      if (payload?.steps) {
+        setSteps(payload.steps);
+      }
+      if (payload?.spec_name) {
+        setWorkflowName(payload.spec_name);
+      }
+    };
+
+    const processComplete = (spec: any) => {
+      isDone = true;
+      setCompileStatus('Compilation & verification complete!');
+      setIsCompiling(false);
+      if (spec) {
+        onCompilationComplete(spec);
+      }
+    };
+
+    const handleData = (dataStr: string) => {
+      try {
+        const data = JSON.parse(dataStr);
+        const isInterrupt = 
+          data.type === 'interrupt' || 
+          data.type === 'interrupt_review_intents' || 
+          data.interrupt_type === 'interrupt_review_intents' || 
+          data.node === 'review_intents' ||
+          data.status === 'review_pending';
+
+        if (isInterrupt) {
+          processInterrupt(data.payload || data.spec || {});
+        } else if (data.status === 'saved' || data.type === 'compile_completed' || data.status === 'completed') {
+          processComplete(data.spec);
+        } else if (data.type === 'node_update' || data.type === 'node_start') {
+          setCompileStatus(`LangGraph running node: ${data.node}...`);
+        } else if (data.type === 'compile_error') {
+          isDone = true;
+          setError(data.error || 'Compilation failed');
+          setIsCompiling(false);
+        }
+      } catch (e) {
+        console.error('Error parsing compile event:', e);
+      }
+    };
+
+    const es = new EventSource(`/api/compile/${compileId}/events`);
+    es.onmessage = (event) => handleData(event.data);
+    es.onerror = () => {
+      es.close();
+    };
+
+    const pollTimer = setInterval(async () => {
+      if (isDone) return;
+      try {
+        const statusRes = await getCompilation(compileId);
+        if (statusRes.status === 'review_pending') {
+          processInterrupt(statusRes.payload || statusRes.spec || {});
+        } else if (statusRes.status === 'completed') {
+          processComplete(statusRes.payload || statusRes.spec);
+        } else if (statusRes.status === 'failed') {
+          isDone = true;
+          setError(statusRes.error || 'Compilation failed');
+          setIsCompiling(false);
+        }
+      } catch (err) {
+        // network retry
+      }
+    }, 1200);
+
+    return () => {
+      isDone = true;
+      es.close();
+      clearInterval(pollTimer);
+    };
+  }, [isCompiling, compileId, onCompilationComplete]);
 
   const handleStepIntentChange = (idx: number, newIntent: string) => {
     setSteps(prev => prev.map(s => s.idx === idx ? { ...s, intent: newIntent } : s));
@@ -83,181 +171,29 @@ export default function StepEditor({
     setError(null);
     setCompileStatus('Analyzing step intents with Gemma 4...');
 
-    let pollTimer: any = null;
-    let es: EventSource | null = null;
-
-    const cleanup = () => {
-      if (pollTimer) clearInterval(pollTimer);
-      if (es) {
-        es.close();
-        es = null;
-      }
-    };
-
-    const processInterrupt = (payload: any) => {
-      cleanup();
-      setReviewRequired(true);
-      setIsCompiling(false);
-      setCompileStatus('Gemma 4 parameter proposal ready for your confirmation.');
-      if (payload?.variables) {
-        setDetectedVariables(payload.variables);
-      }
-      if (payload?.steps) {
-        setSteps(payload.steps);
-      }
-      if (payload?.spec_name) {
-        setWorkflowName(payload.spec_name);
-      }
-    };
-
-    const processComplete = (spec: any) => {
-      cleanup();
-      setCompileStatus('Compilation & verification complete!');
-      setIsCompiling(false);
-      if (spec) {
-        onCompilationComplete(spec);
-      }
-    };
-
     try {
       const res = await startCompilation(recordingId);
+      compileIdRef.current = res.compile_id;
       setCompileId(res.compile_id);
-
-      
-      es = new EventSource(`/api/compile/${res.compile_id}/events`);
-      
-      const handleData = (dataStr: string) => {
-        try {
-          const data = JSON.parse(dataStr);
-          const isInterrupt = 
-            data.type === 'interrupt' || 
-            data.type === 'interrupt_review_intents' || 
-            data.interrupt_type === 'interrupt_review_intents' || 
-            data.node === 'review_intents' ||
-            data.status === 'review_pending';
-
-          if (isInterrupt) {
-            processInterrupt(data.payload || data.spec || {});
-          } else if (data.type === 'node_update' || data.type === 'node_start') {
-            setCompileStatus(`LangGraph running node: ${data.node}...`);
-          } else if (data.type === 'compile_completed') {
-            processComplete(data.spec);
-          } else if (data.type === 'compile_error') {
-            cleanup();
-            setError(data.error || 'Compilation failed');
-            setIsCompiling(false);
-          }
-        } catch (e) {
-          console.error('Error parsing compile event:', e);
-        }
-      };
-
-      es.onmessage = (event) => handleData(event.data);
-      es.addEventListener('interrupt', (e: any) => handleData(e.data));
-      es.addEventListener('compile_completed', (e: any) => handleData(e.data));
-      es.addEventListener('compile_error', (e: any) => handleData(e.data));
-      es.addEventListener('node_update', (e: any) => handleData(e.data));
-
-      es.onerror = () => {
-        
-      };
-
-      
-      pollTimer = setInterval(async () => {
-        try {
-          const statusRes = await getCompilation(res.compile_id);
-          if (statusRes.status === 'review_pending') {
-            processInterrupt(statusRes.payload || statusRes.spec || {});
-          } else if (statusRes.status === 'completed') {
-            processComplete(statusRes.payload || statusRes.spec);
-          } else if (statusRes.status === 'failed') {
-            cleanup();
-            setError(statusRes.error || 'Compilation failed');
-            setIsCompiling(false);
-          }
-        } catch (err) {
-          
-        }
-      }, 1200);
-
     } catch (err: any) {
-      cleanup();
       setError(err.message || 'Compilation failed to start');
       setIsCompiling(false);
     }
   };
 
   const handleApproveAndSave = async () => {
-    if (!compileId) return;
+    const activeCmpId = compileIdRef.current;
+    if (!activeCmpId) return;
     setIsCompiling(true);
     setCompileStatus('Executing trial run and dual-layer verification...');
-    
-    let pollTimer: any = null;
-    let es: EventSource | null = null;
-
-    const cleanup = () => {
-      if (pollTimer) clearInterval(pollTimer);
-      if (es) {
-        es.close();
-        es = null;
-      }
-    };
 
     try {
-      await approveCompilation(compileId, {
+      await approveCompilation(activeCmpId, {
         name: workflowName,
-        variables: detectedVariables,
+        variables: detectedVariablesRef.current,
         steps: steps
       });
-
-      
-      es = new EventSource(`/api/compile/${compileId}/events`);
-      
-      const handleData = (dataStr: string) => {
-        try {
-          const data = JSON.parse(dataStr);
-          if (data.status === 'saved' || data.type === 'compile_completed' || data.status === 'completed') {
-            cleanup();
-            setIsCompiling(false);
-            if (data.spec) {
-              onCompilationComplete(data.spec);
-            }
-          } else if (data.type === 'compile_error') {
-            cleanup();
-            setError(data.error || 'Verification failed');
-            setIsCompiling(false);
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      };
-
-      es.onmessage = (event) => handleData(event.data);
-      es.addEventListener('compile_completed', (e: any) => handleData(e.data));
-      es.addEventListener('compile_error', (e: any) => handleData(e.data));
-
-      
-      pollTimer = setInterval(async () => {
-        try {
-          const statusRes = await getCompilation(compileId);
-          if (statusRes.status === 'completed') {
-            cleanup();
-            setIsCompiling(false);
-            if (statusRes.payload || statusRes.spec) {
-              onCompilationComplete(statusRes.payload || statusRes.spec);
-            }
-          } else if (statusRes.status === 'failed') {
-            cleanup();
-            setError(statusRes.error || 'Verification failed');
-            setIsCompiling(false);
-          }
-        } catch (err) {
-          
-        }
-      }, 1200);
-
     } catch (err: any) {
-      cleanup();
       setError(err.message || 'Failed to approve compilation');
       setIsCompiling(false);
     }
@@ -269,11 +205,13 @@ export default function StepEditor({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex-1 space-y-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <label htmlFor="workflow-skill-name-input" className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Workflow Skill Name
             </label>
             <input
               type="text"
+              id="workflow-skill-name-input"
+              aria-label="Workflow Skill Name"
               value={workflowName}
               onChange={(e) => setWorkflowName(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-base font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -380,7 +318,7 @@ export default function StepEditor({
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <label htmlFor={`intent-input-${step.idx}`} className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                     <Sparkles className="w-3 h-3 text-indigo-400" />
                     Semantic Intent (Inferred by Gemma 4)
                   </label>
@@ -388,16 +326,17 @@ export default function StepEditor({
                     type="text"
                     value={step.intent || ''}
                     placeholder="e.g. Choose applicant's department"
+                    id={`intent-input-${step.idx}`}
+                    aria-label={`Semantic Intent for Step ${step.idx}`}
                     onChange={(e) => handleStepIntentChange(step.idx, e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
-                
                 <div className="space-y-1">
-                  <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     {isVar ? 'Parameter Variable Name' : 'Literal Step Value'}
-                  </label>
+                  </span>
                   {isVar ? (
                     <div className="flex items-center gap-1">
                       <span className="text-xs font-mono text-purple-400 font-bold">{'{'}{'{'}</span>
@@ -405,6 +344,8 @@ export default function StepEditor({
                         type="text"
                         value={step.variable_name || ''}
                         placeholder="applicant_name"
+                        id={`var-input-${step.idx}`}
+                        aria-label={`Parameter Variable Name for Step ${step.idx}`}
                         onChange={(e) => handleVariableNameChange(step.idx, e.target.value)}
                         className="flex-1 bg-slate-950 border border-purple-800/40 rounded-lg px-2.5 py-1.5 text-xs text-purple-300 font-mono focus:outline-none focus:ring-1 focus:ring-purple-500"
                       />
@@ -414,6 +355,8 @@ export default function StepEditor({
                     <input
                       type="text"
                       value={step.value || ''}
+                      id={`static-val-${step.idx}`}
+                      aria-label={`Static Constant Value for Step ${step.idx}`}
                       placeholder="Static constant value"
                       disabled={step.action === 'click'}
                       onChange={(e) => {
