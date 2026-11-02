@@ -6,17 +6,13 @@ import {
   CheckCircle2, 
   XCircle, 
   Loader2, 
-  AlertTriangle, 
   ShieldCheck, 
   FileSpreadsheet, 
   Eye, 
-  RotateCcw,
-  Monitor,
-  Wrench,
-  Check
+  Monitor 
 } from 'lucide-react';
 import { WorkflowSpec, RowResult, HealProposal } from '../types';
-import { startWorkflowRun, listSpecs, listRuns, getImageUrl } from '../api';
+import { startWorkflowRun, listSpecs, getImageUrl } from '../api';
 
 interface RunGridProps {
   currentSpec?: WorkflowSpec | null;

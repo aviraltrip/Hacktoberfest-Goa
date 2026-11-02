@@ -3,16 +3,9 @@ import {
   Wrench, 
   Sparkles, 
   Check, 
-  X, 
-  AlertTriangle, 
-  Layers, 
-  CheckCircle2, 
-  Eye, 
-  ArrowRight,
-  ShieldAlert,
-  HelpCircle
+  X 
 } from 'lucide-react';
-import { HealProposal, CandidateElement } from '../types';
+import { HealProposal } from '../types';
 import { approveHealAction, getImageUrl } from '../api';
 
 interface HealModalProps {

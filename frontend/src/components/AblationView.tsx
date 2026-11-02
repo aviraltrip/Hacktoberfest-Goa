@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  BarChart3, 
   Sparkles, 
-  AlertTriangle, 
   CheckCircle2, 
   XCircle, 
-  RefreshCw, 
-  ShieldCheck, 
-  ArrowUpRight,
-  HelpCircle
+  RefreshCw 
 } from 'lucide-react';
 import { AblationResponse } from '../types';
 import { getAblationBenchmark } from '../api';

@@ -102,7 +102,7 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
             "error": None
         }
 
-        for chunk in compile_graph.stream(initial_compile_state, config=compile_thread):
+        for _ in compile_graph.stream(initial_compile_state, config=compile_thread):
             pass
 
         state_after_intents = compile_graph.get_state(compile_thread)
@@ -124,7 +124,7 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
             "results": mock_trial_results
         }
 
-        for chunk in compile_graph.stream(Command(resume=resume_payload), config=compile_thread):
+        for _ in compile_graph.stream(Command(resume=resume_payload), config=compile_thread):
             pass
 
         final_compile_state = compile_graph.get_state(compile_thread)
@@ -163,7 +163,7 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
             "status": "running"
         }
 
-        for chunk in run_graph.stream(initial_run_state, config=run_thread):
+        for _ in run_graph.stream(initial_run_state, config=run_thread):
             pass
 
         state_after_heal = run_graph.get_state(run_thread)
@@ -202,7 +202,7 @@ class TestPhase7EndToEndLifecycle(unittest.TestCase):
             "results": mock_healed_results
         }
 
-        for chunk in run_graph.stream(Command(resume=resume_heal_payload), config=run_thread):
+        for _ in run_graph.stream(Command(resume=resume_heal_payload), config=run_thread):
             pass
 
         final_run_state = run_graph.get_state(run_thread)

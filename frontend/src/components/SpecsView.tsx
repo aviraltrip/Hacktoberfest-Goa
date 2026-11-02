@@ -5,10 +5,8 @@ import {
   Play, 
   RefreshCw, 
   Layers, 
-  ExternalLink,
-  CheckCircle2,
-  Copy,
-  Check
+  Copy, 
+  Check 
 } from 'lucide-react';
 import { WorkflowSpec } from '../types';
 import { listSpecs, exportStandaloneScript } from '../api';

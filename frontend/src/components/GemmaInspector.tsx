@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Terminal, 
   X, 
   RefreshCw, 
-  Clock, 
   Sparkles, 
-  CheckCircle2, 
-  AlertCircle, 
   ChevronDown, 
-  ChevronUp,
-  Image as ImageIcon,
-  Cpu
+  ChevronUp, 
+  Image as ImageIcon, 
+  Cpu 
 } from 'lucide-react';
 import { GemmaCallLog } from '../types';
 import { getGemmaCalls, getImageUrl } from '../api';

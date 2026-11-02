@@ -1,15 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  Sparkles, 
-  Terminal, 
-  Layers, 
-  Play, 
-  BarChart3, 
-  ExternalLink,
-  Wrench,
-  ShieldCheck,
-  Cpu
-} from 'lucide-react';
+import { Sparkles, Cpu } from 'lucide-react';
 import { Step, WorkflowSpec, HealProposal } from './types';
 import RecordPanel from './components/RecordPanel';
 import StepEditor from './components/StepEditor';

@@ -205,7 +205,7 @@ class TestPhase3LangGraph(unittest.TestCase):
             "status": "understanding"
         }
 
-        for chunk in graph.stream(initial_state, config=thread_config):
+        for _ in graph.stream(initial_state, config=thread_config):
             pass
 
         state_after_interrupt = graph.get_state(thread_config)
@@ -219,7 +219,7 @@ class TestPhase3LangGraph(unittest.TestCase):
             ]
         }
 
-        for chunk in graph.stream(Command(resume=resume_payload), config=thread_config):
+        for _ in graph.stream(Command(resume=resume_payload), config=thread_config):
             pass
 
         final_state = graph.get_state(thread_config)

@@ -195,7 +195,7 @@ class TestPhase5RunGraph(unittest.TestCase):
             "status": "running"
         }
 
-        for chunk in graph.stream(initial_state, config=thread_config):
+        for _ in graph.stream(initial_state, config=thread_config):
             pass
 
         state_after_interrupt = graph.get_state(thread_config)
@@ -216,7 +216,7 @@ class TestPhase5RunGraph(unittest.TestCase):
         ]
 
         resume_payload = {"approved": True, "results": mock_success_results}
-        for chunk in graph.stream(Command(resume=resume_payload), config=thread_config):
+        for _ in graph.stream(Command(resume=resume_payload), config=thread_config):
             pass
 
         final_state = graph.get_state(thread_config)

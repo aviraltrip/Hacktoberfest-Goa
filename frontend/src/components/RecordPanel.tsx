@@ -1,26 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Play, 
   Square, 
   Circle, 
-  Clock, 
-  CheckCircle2, 
-  ExternalLink, 
-  Image as ImageIcon,
-  Code,
-  Sparkles,
-  ChevronRight,
-  Monitor
+  Sparkles, 
+  Monitor 
 } from 'lucide-react';
 import { Step } from '../types';
 import { startRecording, stopRecording, getImageUrl } from '../api';
 
 interface RecordPanelProps {
   onRecordingComplete: (recordingId: string, steps: Step[]) => void;
-  onSelectStepToView?: (step: Step) => void;
 }
 
-export default function RecordPanel({ onRecordingComplete, onSelectStepToView }: RecordPanelProps) {
+export default function RecordPanel({ onRecordingComplete }: RecordPanelProps) {
   const [startUrl, setStartUrl] = useState('http://localhost:8080/');
   const [headed, setHeaded] = useState(true);
   const [isRecording, setIsRecording] = useState(false);

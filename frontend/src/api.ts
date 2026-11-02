@@ -123,12 +123,6 @@ export async function getGemmaCalls(): Promise<GemmaCallLog[]> {
   return res.json();
 }
 
-export async function getHealMemory(): Promise<any[]> {
-  const res = await fetch(`${API_BASE}/heal/memory`);
-  if (!res.ok) return [];
-  return res.json();
-}
-
 export async function getAblationBenchmark(): Promise<AblationResponse> {
   const res = await fetch(`${API_BASE}/ablation`);
   return handleResponse<AblationResponse>(res, 'Ablation benchmark fetch failed');

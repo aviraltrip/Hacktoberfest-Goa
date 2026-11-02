@@ -2,15 +2,9 @@ import React, { useState } from 'react';
 import { 
   Sparkles, 
   Check, 
-  Edit3, 
-  ArrowRight, 
   Tag, 
-  Layers, 
   Eye, 
-  Settings2, 
-  CheckCircle2, 
-  AlertCircle,
-  Code
+  AlertCircle 
 } from 'lucide-react';
 import { Step, Variable, WorkflowSpec } from '../types';
 import { startCompilation, approveCompilation, getCompilation, getImageUrl } from '../api';
