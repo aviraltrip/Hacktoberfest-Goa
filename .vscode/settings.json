@@ -1,8 +1,14 @@
 {
   "python.analysis.extraPaths": [
+    "${workspaceFolder}/backend",
+    "${workspaceFolder}",
+    "backend",
     "./backend"
   ],
   "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/backend",
+    "${workspaceFolder}",
+    "backend",
     "./backend"
   ],
   "python.analysis.typeCheckingMode": "basic",
@@ -11,6 +17,8 @@
     "reportOptionalMemberAccess": "none",
     "reportAssignmentType": "none",
     "reportCallIssue": "none",
-    "reportAttributeAccessIssue": "none"
+    "reportAttributeAccessIssue": "none",
+    "reportGeneralTypeIssues": "none",
+    "reportMissingImports": "none"
   }
 }

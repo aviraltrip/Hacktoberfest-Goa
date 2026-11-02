@@ -12,7 +12,7 @@ import asyncio
 import sys
 import unittest
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -147,7 +147,7 @@ class TestPhase3Compilation(unittest.TestCase):
             start_url="http://localhost:8080",
             variables=[Variable(name="applicant_name", type="text", example="Maya")],
             steps=[
-                Step(idx=1, action="goto", value="http://localhost:8080", intent="Go to portal"),
+                Step(idx=1, action="goto", value="http://localhost:8080", intent="Go to portal", locators=[]),
                 Step(idx=2, action="fill", value="{{applicant_name}}", intent="Fill name", locators=[Locator(kind="label", value="Full name")])
             ],
             success=SuccessCondition(text_visible="Application received", visual="Alert shown")
@@ -185,7 +185,7 @@ class TestPhase3LangGraph(unittest.TestCase):
         thread_config = {"configurable": {"thread_id": "test_thread_p3_stream"}}
 
         sample_steps = [
-            Step(idx=1, action="goto", value="http://localhost:8080", intent="Open site"),
+            Step(idx=1, action="goto", value="http://localhost:8080", intent="Open site", locators=[]),
             Step(
                 idx=2,
                 action="fill",
@@ -245,8 +245,8 @@ class TestPhase3API(unittest.TestCase):
     @patch("app.main._run_compile_thread_worker")
     def test_compile_and_export_lifecycle(self, mock_worker):
         rec_id = "rec_test_api_p3"
-        completed_recordings[rec_id] = [
-            Step(idx=1, action="goto", value="http://localhost:8080", intent="Go to portal"),
+        cast(dict[str, Any], completed_recordings)[rec_id] = [
+            Step(idx=1, action="goto", value="http://localhost:8080", intent="Go to portal", locators=[]),
             Step(idx=2, action="click", intent="Submit", locators=[Locator(kind="role", value="button", name="Submit")])
         ]
 
