@@ -125,7 +125,6 @@ export default function StepEditor({
           setIsCompiling(false);
         }
       } catch (err) {
-        // network retry
       }
     }, 1200);
 

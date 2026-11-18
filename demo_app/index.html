@@ -76,7 +76,6 @@
       resize: vertical;
       min-height: 80px;
     }
-    /* Normal Submit button */
     .btn-primary {
       background-color: var(--primary);
       color: white;
@@ -103,7 +102,6 @@
       fill: currentColor;
     }
 
-    /* Mutation V2: Footer bar relocation & icon-only styling */
     .portal-footer-dock {
       position: fixed;
       bottom: 0;
@@ -141,7 +139,6 @@
       fill: currentColor;
     }
 
-    /* Success Banner */
     .alert-success {
       display: none;
       background-color: var(--success-bg);
@@ -233,23 +230,17 @@
   <div id="footerDockContainer" style="display: none;"></div>
 
   <script>
-    // Inspect query string for ?v=2 mutation mode
     const params = new URLSearchParams(window.location.search);
     const isV2 = params.get('v') === '2';
 
     if (isV2) {
       document.getElementById('modeBadge').innerHTML = '<span class="badge-v2">V2 (UI MUTATION ACTIVE)</span>';
 
-      // 1. Rename 'Full name' to 'Applicant'
       document.getElementById('lblFullName').innerText = 'Applicant';
 
-      // 2. Remove in-form button
       const inFormContainer = document.getElementById('inFormSubmitContainer');
       inFormContainer.innerHTML = '';
 
-      // 3. Move submit button into fixed footer dock with scrambled ID & classes
-      // CRITICAL: Strip text AND aria-label so rules/BM25 have zero text to match.
-      // Only Gemma 4 visual Set-of-Marks can identify the paper plane submit icon.
       const footerDock = document.getElementById('footerDockContainer');
       footerDock.className = 'portal-footer-dock';
       footerDock.style.display = 'flex';
@@ -272,7 +263,6 @@
         return;
       }
 
-      // Display success banner with deterministic confirmation text
       const banner = document.getElementById('confirmationBanner');
       banner.innerText = `Application received, ref #GA-${Math.floor(1000 + Math.random() * 9000)}`;
       banner.style.display = 'block';
