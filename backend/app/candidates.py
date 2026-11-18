@@ -65,7 +65,6 @@ EXTRACT_CANDIDATES_JS = """
 
 INJECT_SOM_JS = """
 (candidates) => {
-  // Remove any preexisting overlay
   const existing = document.getElementById('__demotoskill_som_container');
   if (existing) existing.remove();
 
@@ -79,16 +78,15 @@ INJECT_SOM_JS = """
   container.style.pointerEvents = 'none';
   container.style.zIndex = '2147483647';
 
-  // Distinct high-contrast palette
   const colors = [
-    '#dc2626', // Red
-    '#2563eb', // Blue
-    '#16a34a', // Green
-    '#d97706', // Amber
-    '#9333ea', // Purple
-    '#0891b2', // Cyan
-    '#ea580c', // Orange
-    '#db2777'  // Pink
+    '#dc2626',
+    '#2563eb',
+    '#16a34a',
+    '#d97706',
+    '#9333ea',
+    '#0891b2',
+    '#ea580c',
+    '#db2777'
   ];
 
   candidates.forEach((cand, idx) => {
@@ -97,7 +95,6 @@ INJECT_SOM_JS = """
 
     const color = colors[idx % colors.length];
 
-    // Bounding box border
     const box = document.createElement('div');
     box.style.position = 'absolute';
     box.style.left = `${bbox.x}px`;
@@ -108,7 +105,6 @@ INJECT_SOM_JS = """
     box.style.boxSizing = 'border-box';
     box.style.borderRadius = '4px';
 
-    // Numbered Badge
     const badge = document.createElement('div');
     badge.innerText = `${cand.id}`;
     badge.style.position = 'absolute';

@@ -7,9 +7,7 @@ using Jinja2 templating.
 from jinja2 import Template
 from app.models import WorkflowSpec
 
-SCRIPT_TEMPLATE = """# Standalone Playwright script for {{ spec.name }}
-# Generated automatically by DemoToSkill (Hacktoberfest Hack Day 2026)
-
+SCRIPT_TEMPLATE = """
 import asyncio
 from playwright.async_api import async_playwright
 
@@ -61,7 +59,6 @@ async def run_skill(row_data: dict, headed: bool = True):
             val = step.get('value') or ''
             intent = step.get('intent', '')
 
-            # Interpolate variables: {{ '{{' }}var_name{{ '}}' }} -> row_data['var_name']
             for var_key, var_val in row_data.items():
                 token = "{" + "{" + var_key + "}" + "}"
                 val = val.replace(token, str(var_val))
@@ -88,7 +85,6 @@ async def run_skill(row_data: dict, headed: bool = True):
 
             await page.wait_for_timeout(300)
 
-        # Verification
         {% if spec.success.text_visible %}
         assert await page.get_by_text("{{ spec.success.text_visible }}").is_visible(), "Success text not found!"
         {% endif %}
@@ -96,7 +92,6 @@ async def run_skill(row_data: dict, headed: bool = True):
         await browser.close()
 
 if __name__ == '__main__':
-    # Sample run with observed recording examples
     sample_data = {
     {% for var in spec.variables %}
         "{{ var.name }}": "{{ var.example }}",

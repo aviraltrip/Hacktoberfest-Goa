@@ -10,7 +10,6 @@ INJECTED_RECORDER_JS = """
   if (window.__demotoskill_recorder_active) return;
   window.__demotoskill_recorder_active = true;
 
-  // Helper to extract accessible label from label elements or attributes
   function getElementLabel(elem) {
     if (!elem) return '';
     if (elem.labels && elem.labels.length > 0) {
@@ -25,7 +24,6 @@ INJECTED_RECORDER_JS = """
     return '';
   }
 
-  // Helper to deduce accessible name
   function getAccessibleName(elem) {
     if (!elem) return '';
     const ariaLabel = elem.getAttribute('aria-label');
@@ -40,7 +38,6 @@ INJECTED_RECORDER_JS = """
     const label = getElementLabel(elem);
     if (label) return label;
 
-    // Check alt text of child image / svg
     const img = elem.querySelector('img[alt]');
     if (img && img.alt) return img.alt.trim();
 
@@ -50,7 +47,6 @@ INJECTED_RECORDER_JS = """
     const placeholder = elem.getAttribute('placeholder');
     if (placeholder) return placeholder.trim();
 
-    // Use trimmed innerText for buttons and links
     const tag = elem.tagName.toLowerCase();
     if (['button', 'a'].includes(tag) || elem.getAttribute('role') === 'button') {
       const text = (elem.innerText || '').trim();
@@ -60,13 +56,11 @@ INJECTED_RECORDER_JS = """
     return '';
   }
 
-  // Extract comprehensive metadata dictionary
   function extractElementData(elem) {
     if (!elem || !(elem instanceof Element)) return {};
     const rect = elem.getBoundingClientRect();
     const tag = elem.tagName.toLowerCase();
 
-    // Extract outerHTML + immediate parent outerHTML, capped to 600 chars
     let outer = elem.outerHTML || '';
     if (outer.length > 300) {
       outer = outer.substring(0, 300) + '...';
@@ -97,7 +91,6 @@ INJECTED_RECORDER_JS = """
     };
   }
 
-  // Safe dispatcher to Python __record binding
   function dispatchRecord(payload) {
     if (typeof window.__record === 'function') {
       try {
@@ -108,14 +101,11 @@ INJECTED_RECORDER_JS = """
     }
   }
 
-  // --- 1. CLICK EVENT LISTENER ---
   document.addEventListener('click', (e) => {
-    // Only capture primary mouse clicks
     if (e.button !== 0) return;
     const target = e.target.closest('button, a, input, select, textarea, [role="button"], [tabindex], label') || e.target;
     if (!target) return;
 
-    // Do not record clicks inside password fields
     if (target.type === 'password') {
       return;
     }
@@ -127,7 +117,6 @@ INJECTED_RECORDER_JS = """
     });
   }, true);
 
-  // --- 2. INPUT & CHANGE EVENT LISTENER ---
   let inputTimer = null;
   document.addEventListener('input', (e) => {
     const target = e.target;
@@ -168,7 +157,6 @@ INJECTED_RECORDER_JS = """
     }
   }, true);
 
-  // --- 3. KEYDOWN LISTENER (Enter, Tab) ---
   document.addEventListener('keydown', (e) => {
     if (['Enter', 'Tab'].includes(e.key)) {
       const target = e.target;
